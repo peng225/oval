@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/peng225/oval/parser"
+	"github.com/peng225/oval/argparser"
 )
 
 func main() {
@@ -21,5 +21,5 @@ func main() {
 	flag.StringVar(&bucketName, "bucket", "", "The name of the bucket.")
 	flag.Parse()
 
-	minSize, maxSize, err := parser.SizeParse(sizePattern)
+	minSize, maxSize, err := argparser.SizeParse(sizePattern)
 }
