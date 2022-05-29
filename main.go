@@ -4,6 +4,7 @@ import (
 	"flag"
 
 	"github.com/peng225/oval/argparser"
+	"github.com/peng225/oval/validator"
 )
 
 func main() {
@@ -22,4 +23,18 @@ func main() {
 	flag.Parse()
 
 	minSize, maxSize, err := argparser.SizeParse(sizePattern)
+	if err != nil {
+		panic(err)
+	}
+
+	v := validator.Validator{
+		NumObj:     numObj,
+		NumWorker:  numWorker,
+		MinSize:    minSize,
+		MaxSize:    maxSize,
+		NumRound:   numRound,
+		BucketName: bucketName,
+	}
+
+	v.Run()
 }
