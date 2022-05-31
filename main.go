@@ -36,5 +36,6 @@ func main() {
 		BucketName: bucketName,
 	}
 
+	v.Init()
 	v.Run()
 }
