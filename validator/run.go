@@ -47,8 +47,6 @@ func (v *Validator) Init() {
 
 	v.objectList.Init(v.BucketName, v.NumObj)
 
-	v.clearBucket()
-
 	_, err = v.client.HeadBucket(context.Background(), &s3.HeadBucketInput{
 		Bucket: &v.BucketName,
 	})
@@ -64,6 +62,8 @@ func (v *Validator) Init() {
 		} else {
 			log.Fatal(err)
 		}
+	} else {
+		v.clearBucket()
 	}
 }
 
