@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"log"
 
 	"github.com/peng225/oval/argparser"
 	"github.com/peng225/oval/validator"
@@ -21,6 +22,8 @@ func main() {
 	flag.Int64Var(&time, "time", 3, "Time duration in seconds to run the workload.")
 	flag.StringVar(&bucketName, "bucket", "", "The name of the bucket.")
 	flag.Parse()
+
+	log.SetFlags(log.Lshortfile)
 
 	minSize, maxSize, err := argparser.SizeParse(sizePattern)
 	if err != nil {
