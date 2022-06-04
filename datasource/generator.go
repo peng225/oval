@@ -90,7 +90,7 @@ func Valid(obj *object.Object, reader io.Reader) error {
 		err := validDataUnit(i, obj, data[dataUnitSize*i:dataUnitSize*(i+1)])
 		if err != nil {
 			// TODO: How to dump the result
-			log.Fatal(err)
+			return err
 		}
 	}
 	return nil

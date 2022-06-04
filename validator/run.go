@@ -18,7 +18,7 @@ import (
 )
 
 type Validator struct {
-	NumObj     int64
+	NumObj     int
 	NumWorker  int
 	MinSize    int
 	MaxSize    int
@@ -52,6 +52,8 @@ func (v *Validator) Init() {
 	})
 	if err != nil {
 		var nsb *types.NoSuchBucket
+		// TODO: error check is wrong
+		// run.go:63: operation error S3: HeadBucket, https response error StatusCode: 404, RequestID: 16F51D844C34E050, HostID: , NotFound:
 		if errors.As(err, &nsb) {
 			_, err = v.client.CreateBucket(context.Background(), &s3.CreateBucketInput{
 				Bucket: &v.BucketName,
@@ -133,7 +135,8 @@ func (v *Validator) selectOperation() Operation {
 }
 
 func (v *Validator) create() {
-	obj := v.objectList.GetRandomObject()
+	obj, mu := v.objectList.GetRandomObject()
+	defer mu.Unlock()
 
 	// Validation before write
 	getBeforeRes, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{
@@ -144,17 +147,23 @@ func (v *Validator) create() {
 		var nsk *types.NoSuchKey
 		if errors.As(err, &nsk) {
 			if v.objectList.Exist(obj.Key) {
-				// expect: exist, actual: does not exist
-				log.Fatalf("Object lost. (key = %s)", obj.Key)
+				// expect: exists, actual: does not exist
+				log.Fatalf("An object has been lost. (key = %s)", obj.Key)
 			}
-		} else {
-			log.Fatal(err)
 		}
 	} else {
 		defer getBeforeRes.Body.Close()
-		datasource.Valid(obj, getBeforeRes.Body)
+		if !v.objectList.Exist(obj.Key) {
+			// expect: does not exist, actual: exists
+			log.Fatalf("An unexpected object was found. (key = %s)", obj.Key)
+		}
+		err := datasource.Valid(obj, getBeforeRes.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
+	v.objectList.RegisterToExistingList(obj.Key)
 	obj.WriteCount++
 	body, size, err := datasource.Generate(v.MinSize, v.MaxSize, obj)
 	obj.Size = size
@@ -179,20 +188,54 @@ func (v *Validator) create() {
 		log.Fatal(err)
 	}
 	defer getAfterRes.Body.Close()
-
-	datasource.Valid(obj, getAfterRes.Body)
+	err = datasource.Valid(obj, getAfterRes.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (v *Validator) delete() {
-	obj := v.objectList.PopExistingRandomObject()
+	obj, mu := v.objectList.PopExistingRandomObject()
 	if obj == nil {
 		return
 	}
-	_, err := v.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
+	defer mu.Unlock()
+
+	// Validation before delete
+	getBeforeRes, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: &v.BucketName,
 		Key:    &obj.Key,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer getBeforeRes.Body.Close()
+	err = datasource.Valid(obj, getBeforeRes.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_, err = v.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
+		Bucket: &v.BucketName,
+		Key:    &obj.Key,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Validation after delete
+	getAfterRes, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: &v.BucketName,
+		Key:    &obj.Key,
+	})
+	if err != nil {
+		var nsk *types.NoSuchKey
+		if !errors.As(err, &nsk) {
+			log.Fatalf("Unexpected error occurred. (err = %w)", err)
+		}
+	} else {
+		defer getAfterRes.Body.Close()
+		log.Fatalf("expected: object not found, actual: object found. (obj = %v)", *obj)
+	}
+	obj.Clear()
 }
