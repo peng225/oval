@@ -54,7 +54,6 @@ func (ol *ObjectList) Init(bucketName string, numObj int) {
 	ol.objMu = make([]sync.Mutex, int(math.Sqrt(float64(numObj))))
 }
 
-// TODO: dead lock exists somewhere.
 func (ol *ObjectList) GetRandomObject() (*Object, *sync.Mutex) {
 	for {
 		objId := rand.Intn(len(ol.objectList))
@@ -86,22 +85,23 @@ func (ol *ObjectList) RegisterToExistingList(key string) {
 }
 
 func (ol *ObjectList) PopExistingRandomObject() (*Object, *sync.Mutex) {
-	ol.eoiMu.Lock()
-	defer ol.eoiMu.Unlock()
-	if len(ol.existingObjectIDs) == 0 {
-		return nil, nil
-	}
 	for {
+		ol.eoiMu.Lock()
+		if len(ol.existingObjectIDs) == 0 {
+			ol.eoiMu.Unlock()
+			return nil, nil
+		}
 		existingObjId := rand.Intn(len(ol.existingObjectIDs))
 		objId := ol.existingObjectIDs[existingObjId]
-		mu := &ol.objMu[int(objId)%len(ol.objMu)]
+		mu := &ol.objMu[objId%len(ol.objMu)]
 		if mu.TryLock() {
 			// Delete the `existingObjId`-th entry from existing object id list
 			ol.existingObjectIDs[existingObjId] = ol.existingObjectIDs[len(ol.existingObjectIDs)-1]
 			ol.existingObjectIDs = ol.existingObjectIDs[:len(ol.existingObjectIDs)-1]
-
+			ol.eoiMu.Unlock()
 			return &ol.objectList[objId], mu
 		}
+		ol.eoiMu.Unlock()
 	}
 }
 
