@@ -51,10 +51,8 @@ func (v *Validator) Init() {
 		Bucket: &v.BucketName,
 	})
 	if err != nil {
-		var nsb *types.NoSuchBucket
-		// TODO: error check is wrong
-		// run.go:63: operation error S3: HeadBucket, https response error StatusCode: 404, RequestID: 16F51D844C34E050, HostID: , NotFound:
-		if errors.As(err, &nsb) {
+		var nf *types.NotFound
+		if errors.As(err, &nf) {
 			_, err = v.client.CreateBucket(context.Background(), &s3.CreateBucketInput{
 				Bucket: &v.BucketName,
 			})
