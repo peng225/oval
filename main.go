@@ -16,6 +16,7 @@ func main() {
 		time        int64
 		bucketName  string
 	)
+	// TODO: tune the percentage of each operation
 	flag.IntVar(&numObj, "num_obj", 10, "The number of objects.")
 	flag.IntVar(&numWorker, "num_worker", 1, "The number of workers.")
 	flag.StringVar(&sizePattern, "size", "4k", "The size of object. Should be in the form like \"4k-2m\" or \"8k\".")

@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/peng225/oval/datasource"
 	"github.com/peng225/oval/object"
+	"github.com/peng225/oval/stat"
 )
 
 type Validator struct {
@@ -26,6 +27,7 @@ type Validator struct {
 	BucketName string
 	client     *s3.Client
 	objectList object.ObjectList
+	st         stat.Stat
 }
 
 func (v *Validator) Init() {
@@ -105,9 +107,9 @@ func (v *Validator) Run() {
 				operation := v.selectOperation()
 				switch operation {
 				case Put:
-					v.create()
+					v.put()
 				case Read:
-					// Do nothing
+					// TODO: implement
 				case Delete:
 					v.delete()
 				}
@@ -116,6 +118,7 @@ func (v *Validator) Run() {
 	}
 	wg.Wait()
 	fmt.Println("Validation finished.")
+	v.st.Report()
 }
 
 type Operation int
@@ -132,7 +135,7 @@ func (v *Validator) selectOperation() Operation {
 	return Operation(rand.Intn(int(NumOperation)))
 }
 
-func (v *Validator) create() {
+func (v *Validator) put() {
 	obj, mu := v.objectList.GetRandomObject()
 	defer mu.Unlock()
 
@@ -190,6 +193,7 @@ func (v *Validator) create() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	v.st.AddPutCount()
 }
 
 func (v *Validator) delete() {
@@ -236,4 +240,5 @@ func (v *Validator) delete() {
 		log.Fatalf("expected: object not found, actual: object found. (obj = %v)", *obj)
 	}
 	obj.Clear()
+	v.st.AddDeleteCount()
 }
