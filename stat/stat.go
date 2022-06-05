@@ -1,6 +1,9 @@
 package stat
 
-import "fmt"
+import (
+	"fmt"
+	"sync/atomic"
+)
 
 type Stat struct {
 	putCount    int64
@@ -8,11 +11,11 @@ type Stat struct {
 }
 
 func (st *Stat) AddPutCount() {
-	st.putCount++
+	atomic.AddInt64(&st.putCount, 1)
 }
 
 func (st *Stat) AddDeleteCount() {
-	st.deleteCount++
+	atomic.AddInt64(&st.deleteCount, 1)
 }
 
 func (st *Stat) Report() {

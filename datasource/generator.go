@@ -79,6 +79,7 @@ func generateDataUnit(unitCount int, obj *object.Object, writer io.Writer) {
 }
 
 func Valid(obj *object.Object, reader io.Reader) error {
+	// TODO: for large data, io.ReadAll is not realistic.
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return err

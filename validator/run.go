@@ -16,21 +16,31 @@ import (
 	"github.com/peng225/oval/datasource"
 	"github.com/peng225/oval/object"
 	"github.com/peng225/oval/stat"
+	"github.com/pkg/profile"
 )
 
+type Runner struct {
+	NumObj        int
+	NumWorker     int
+	MinSize       int
+	MaxSize       int
+	TimeInMs      int64
+	BucketName    string
+	validatorList []Validator
+	client        *s3.Client
+	st            stat.Stat
+}
+
 type Validator struct {
-	NumObj     int
-	NumWorker  int
 	MinSize    int
 	MaxSize    int
-	TimeInMs   int64
 	BucketName string
 	client     *s3.Client
 	objectList object.ObjectList
-	st         stat.Stat
+	st         *stat.Stat
 }
 
-func (v *Validator) Init() {
+func (r *Runner) Init() {
 	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 		return aws.Endpoint{
 			PartitionID:       "aws",
@@ -45,18 +55,26 @@ func (v *Validator) Init() {
 	}
 
 	// Create an Amazon S3 service client
-	v.client = s3.NewFromConfig(cfg)
+	r.client = s3.NewFromConfig(cfg)
 
-	v.objectList.Init(v.BucketName, v.NumObj)
+	r.validatorList = make([]Validator, r.NumWorker)
+	for i, _ := range r.validatorList {
+		r.validatorList[i].MinSize = r.MinSize
+		r.validatorList[i].MaxSize = r.MaxSize
+		r.validatorList[i].BucketName = r.BucketName
+		r.validatorList[i].client = r.client
+		r.validatorList[i].objectList.Init(r.BucketName, r.NumObj/r.NumWorker, r.NumObj/r.NumWorker*i)
+		r.validatorList[i].st = &r.st
+	}
 
-	_, err = v.client.HeadBucket(context.Background(), &s3.HeadBucketInput{
-		Bucket: &v.BucketName,
+	_, err = r.client.HeadBucket(context.Background(), &s3.HeadBucketInput{
+		Bucket: &r.BucketName,
 	})
 	if err != nil {
 		var nf *types.NotFound
 		if errors.As(err, &nf) {
-			_, err = v.client.CreateBucket(context.Background(), &s3.CreateBucketInput{
-				Bucket: &v.BucketName,
+			_, err = r.client.CreateBucket(context.Background(), &s3.CreateBucketInput{
+				Bucket: &r.BucketName,
 			})
 			if err != nil {
 				log.Fatal(err)
@@ -65,15 +83,15 @@ func (v *Validator) Init() {
 			log.Fatal(err)
 		}
 	} else {
-		v.clearBucket()
+		r.clearBucket()
 	}
 }
 
-func (v *Validator) clearBucket() {
+func (r *Runner) clearBucket() {
 	for {
 		var continuationToken *string = nil
-		listRes, err := v.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
-			Bucket:            &v.BucketName,
+		listRes, err := r.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
+			Bucket:            &r.BucketName,
 			ContinuationToken: continuationToken,
 		})
 		if err != nil {
@@ -83,8 +101,8 @@ func (v *Validator) clearBucket() {
 			break
 		}
 		for _, obj := range listRes.Contents {
-			_, err := v.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
-				Bucket: &v.BucketName,
+			_, err := r.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
+				Bucket: &r.BucketName,
 				Key:    obj.Key,
 			})
 			if err != nil {
@@ -95,30 +113,31 @@ func (v *Validator) clearBucket() {
 	}
 }
 
-func (v *Validator) Run() {
+func (r *Runner) Run() {
 	fmt.Println("Validation start.")
+	defer profile.Start(profile.ProfilePath(".")).Stop()
 	wg := &sync.WaitGroup{}
 	now := time.Now()
-	for i := 0; i < v.NumWorker; i++ {
+	for i := 0; i < r.NumWorker; i++ {
 		wg.Add(1)
-		go func() {
+		go func(workerId int) {
 			defer wg.Done()
-			for time.Since(now).Milliseconds() < v.TimeInMs {
-				operation := v.selectOperation()
+			for time.Since(now).Milliseconds() < r.TimeInMs {
+				operation := r.selectOperation()
 				switch operation {
 				case Put:
-					v.put()
+					r.validatorList[workerId].put()
 				case Read:
 					// TODO: implement
 				case Delete:
-					v.delete()
+					r.validatorList[workerId].delete()
 				}
 			}
-		}()
+		}(i)
 	}
 	wg.Wait()
 	fmt.Println("Validation finished.")
-	v.st.Report()
+	r.st.Report()
 }
 
 type Operation int
@@ -130,14 +149,13 @@ const (
 	NumOperation
 )
 
-func (v *Validator) selectOperation() Operation {
+func (r *Runner) selectOperation() Operation {
 	rand.Seed(time.Now().UnixNano())
 	return Operation(rand.Intn(int(NumOperation)))
 }
 
 func (v *Validator) put() {
-	obj, mu := v.objectList.GetRandomObject()
-	defer mu.Unlock()
+	obj := v.objectList.GetRandomObject()
 
 	// Validation before write
 	getBeforeRes, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{
@@ -197,11 +215,10 @@ func (v *Validator) put() {
 }
 
 func (v *Validator) delete() {
-	obj, mu := v.objectList.PopExistingRandomObject()
+	obj := v.objectList.PopExistingRandomObject()
 	if obj == nil {
 		return
 	}
-	defer mu.Unlock()
 
 	// Validation before delete
 	getBeforeRes, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{

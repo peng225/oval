@@ -31,7 +31,7 @@ func main() {
 		panic(err)
 	}
 
-	v := validator.Validator{
+	r := validator.Runner{
 		NumObj:     numObj,
 		NumWorker:  numWorker,
 		MinSize:    minSize,
@@ -40,6 +40,6 @@ func main() {
 		BucketName: bucketName,
 	}
 
-	v.Init()
-	v.Run()
+	r.Init()
+	r.Run()
 }

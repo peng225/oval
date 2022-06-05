@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/rand"
 	"strconv"
-	"sync"
 )
 
 const (
@@ -21,11 +20,11 @@ type Object struct {
 	BucketName string
 }
 
+// TODO: create the instance for each goroutine
 type ObjectList struct {
 	objectList        []Object
 	existingObjectIDs []int
-	objMu             []sync.Mutex
-	eoiMu             sync.Mutex
+	keyIDOffset       int
 }
 
 func (obj *Object) Clear() {
@@ -47,23 +46,18 @@ func generateKey(id int) string {
 	return fmt.Sprintf("ov%010d", currentId)
 }
 
-func (ol *ObjectList) Init(bucketName string, numObj int) {
+func (ol *ObjectList) Init(bucketName string, numObj, keyIDOffset int) {
 	ol.objectList = make([]Object, numObj)
 	for objId := 0; objId < numObj; objId++ {
-		ol.objectList[objId] = *NewObject(bucketName, objId)
+		ol.objectList[objId] = *NewObject(bucketName, keyIDOffset+objId)
 	}
-	ol.objMu = make([]sync.Mutex, int(math.Sqrt(float64(numObj))))
 	ol.existingObjectIDs = make([]int, 0, int(math.Sqrt(float64(numObj))))
+	ol.keyIDOffset = keyIDOffset
 }
 
-func (ol *ObjectList) GetRandomObject() (*Object, *sync.Mutex) {
-	for {
-		objId := rand.Intn(len(ol.objectList))
-		mu := &ol.objMu[objId%len(ol.objMu)]
-		if mu.TryLock() {
-			return &ol.objectList[objId], mu
-		}
-	}
+func (ol *ObjectList) GetRandomObject() *Object {
+	objId := rand.Intn(len(ol.objectList))
+	return &ol.objectList[objId]
 }
 
 // Caution: this function should be called while the for the object lock is acquired.
@@ -72,8 +66,7 @@ func (ol *ObjectList) RegisterToExistingList(key string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	ol.eoiMu.Lock()
-	defer ol.eoiMu.Unlock()
+	objId -= ol.keyIDOffset
 	for _, eoId := range ol.existingObjectIDs {
 		if eoId == objId {
 			// The key is already registered.
@@ -86,30 +79,20 @@ func (ol *ObjectList) RegisterToExistingList(key string) {
 	}
 }
 
-func (ol *ObjectList) PopExistingRandomObject() (*Object, *sync.Mutex) {
-	for {
-		ol.eoiMu.Lock()
-		if len(ol.existingObjectIDs) == 0 {
-			ol.eoiMu.Unlock()
-			return nil, nil
-		}
-		existingObjId := rand.Intn(len(ol.existingObjectIDs))
-		objId := ol.existingObjectIDs[existingObjId]
-		mu := &ol.objMu[objId%len(ol.objMu)]
-		if mu.TryLock() {
-			// Delete the `existingObjId`-th entry from existing object id list
-			ol.existingObjectIDs[existingObjId] = ol.existingObjectIDs[len(ol.existingObjectIDs)-1]
-			ol.existingObjectIDs = ol.existingObjectIDs[:len(ol.existingObjectIDs)-1]
-			ol.eoiMu.Unlock()
-			return &ol.objectList[objId], mu
-		}
-		ol.eoiMu.Unlock()
+func (ol *ObjectList) PopExistingRandomObject() *Object {
+	if len(ol.existingObjectIDs) == 0 {
+		return nil
 	}
+	existingObjId := rand.Intn(len(ol.existingObjectIDs))
+
+	objId := ol.existingObjectIDs[existingObjId]
+	// Delete the `existingObjId`-th entry from existing object id list
+	ol.existingObjectIDs[existingObjId] = ol.existingObjectIDs[len(ol.existingObjectIDs)-1]
+	ol.existingObjectIDs = ol.existingObjectIDs[:len(ol.existingObjectIDs)-1]
+	return &ol.objectList[objId]
 }
 
 func (ol *ObjectList) Exist(key string) bool {
-	ol.eoiMu.Lock()
-	defer ol.eoiMu.Unlock()
 	for _, id := range ol.existingObjectIDs {
 		if key == ol.objectList[id].Key {
 			return true
