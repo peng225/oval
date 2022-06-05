@@ -48,10 +48,12 @@ func generateKey(id int) string {
 }
 
 func (ol *ObjectList) Init(bucketName string, numObj int) {
+	ol.objectList = make([]Object, numObj)
 	for objId := 0; objId < numObj; objId++ {
-		ol.objectList = append(ol.objectList, *NewObject(bucketName, objId))
+		ol.objectList[objId] = *NewObject(bucketName, objId)
 	}
 	ol.objMu = make([]sync.Mutex, int(math.Sqrt(float64(numObj))))
+	ol.existingObjectIDs = make([]int, 0, int(math.Sqrt(float64(numObj))))
 }
 
 func (ol *ObjectList) GetRandomObject() (*Object, *sync.Mutex) {
