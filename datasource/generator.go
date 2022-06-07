@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -33,8 +34,7 @@ func Generate(minSize, maxSize int, obj *object.Object) (io.ReadSeeker, int, err
 	if maxSize == 0 {
 		dataSize = minSize
 	} else {
-		// TODO: implement
-		dataSize = minSize
+		dataSize = minSize + dataUnitSize*rand.Intn((maxSize-minSize)/dataUnitSize+1)
 	}
 
 	f := memfile.New([]byte{})

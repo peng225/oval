@@ -28,7 +28,7 @@ func main() {
 
 	minSize, maxSize, err := argparser.SizeParse(sizePattern)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	r := validator.Runner{

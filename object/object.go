@@ -20,7 +20,6 @@ type Object struct {
 	BucketName string
 }
 
-// TODO: create the instance for each goroutine
 type ObjectList struct {
 	objectList        []Object
 	existingObjectIDs []int
