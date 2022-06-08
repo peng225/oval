@@ -17,9 +17,9 @@ func main() {
 		bucketName  string
 	)
 	// TODO: tune the percentage of each operation
-	flag.IntVar(&numObj, "num_obj", 10, "The number of objects.")
+	flag.IntVar(&numObj, "num_obj", 10, "The maximum number of objects.")
 	flag.IntVar(&numWorker, "num_worker", 1, "The number of workers.")
-	flag.StringVar(&sizePattern, "size", "4k", "The size of object. Should be in the form like \"4k-2m\" or \"8k\".")
+	flag.StringVar(&sizePattern, "size", "4k", "The size of object. Should be in the form like \"8k\" or \"4k-2m\". The unit \"g\" or \"G\" is not allowed.")
 	flag.Int64Var(&time, "time", 3, "Time duration in seconds to run the workload.")
 	flag.StringVar(&bucketName, "bucket", "", "The name of the bucket.")
 	flag.Parse()
