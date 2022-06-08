@@ -91,6 +91,16 @@ func (ol *ObjectList) PopExistingRandomObject() *Object {
 	return &ol.objectList[objId]
 }
 
+func (ol *ObjectList) GetExistingRandomObject() *Object {
+	if len(ol.existingObjectIDs) == 0 {
+		return nil
+	}
+	existingObjId := rand.Intn(len(ol.existingObjectIDs))
+
+	objId := ol.existingObjectIDs[existingObjId]
+	return &ol.objectList[objId]
+}
+
 func (ol *ObjectList) Exist(key string) bool {
 	for _, id := range ol.existingObjectIDs {
 		if key == ol.objectList[id].Key {

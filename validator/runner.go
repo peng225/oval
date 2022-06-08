@@ -117,8 +117,8 @@ func (r *Runner) Run() {
 				switch operation {
 				case Put:
 					r.validatorList[workerId].put()
-				case Read:
-					// TODO: implement
+				case Get:
+					r.validatorList[workerId].get()
 				case Delete:
 					r.validatorList[workerId].delete()
 				}
@@ -134,7 +134,7 @@ type Operation int
 
 const (
 	Put Operation = iota
-	Read
+	Get
 	Delete
 	NumOperation
 )

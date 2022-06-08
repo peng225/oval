@@ -47,6 +47,7 @@ func (v *Validator) put() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		v.st.AddGetCount()
 	}
 
 	v.objectList.RegisterToExistingList(obj.Key)
@@ -64,6 +65,7 @@ func (v *Validator) put() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	v.st.AddPutCount()
 
 	// Validation after write
 	getAfterRes, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{
@@ -78,7 +80,29 @@ func (v *Validator) put() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	v.st.AddPutCount()
+	v.st.AddGetCount()
+}
+
+func (v *Validator) get() {
+	obj := v.objectList.GetExistingRandomObject()
+	if obj == nil {
+		return
+	}
+
+	// Validation on get
+	res, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: &v.BucketName,
+		Key:    &obj.Key,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer res.Body.Close()
+	err = datasource.Valid(obj, res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	v.st.AddGetCount()
 }
 
 func (v *Validator) delete() {
@@ -100,6 +124,7 @@ func (v *Validator) delete() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	v.st.AddGetCount()
 
 	_, err = v.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
 		Bucket: &v.BucketName,
@@ -108,6 +133,7 @@ func (v *Validator) delete() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	v.st.AddDeleteCount()
 
 	// Validation after delete
 	getAfterRes, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{
@@ -124,5 +150,4 @@ func (v *Validator) delete() {
 		log.Fatalf("expected: object not found, actual: object found. (obj = %v)", *obj)
 	}
 	obj.Clear()
-	v.st.AddDeleteCount()
 }
