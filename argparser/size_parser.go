@@ -17,7 +17,7 @@ func SizeParse(s string) (int, int, error) {
 			return 0, 0, fmt.Errorf("Illegal size format: %v\n", s)
 		}
 	} else {
-		sizesStr = []string{s}
+		sizesStr = []string{s, s}
 	}
 
 	sizes := make([]int, 2)

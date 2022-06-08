@@ -26,16 +26,12 @@ func Generate(minSize, maxSize int, obj *object.Object) (io.ReadSeeker, int, err
 	if maxSize != 0 && maxSize%dataUnitSize != 0 {
 		return nil, 0, fmt.Errorf("maxSize should be a multiple of %v.", dataUnitSize)
 	}
-	if maxSize != 0 && maxSize < minSize {
+	if maxSize < minSize {
 		return nil, 0, errors.New("maxSize should be larger than minSize.")
 	}
 
 	var dataSize int
-	if maxSize == 0 {
-		dataSize = minSize
-	} else {
-		dataSize = minSize + dataUnitSize*rand.Intn((maxSize-minSize)/dataUnitSize+1)
-	}
+	dataSize = minSize + dataUnitSize*rand.Intn((maxSize-minSize)/dataUnitSize+1)
 
 	f := memfile.New([]byte{})
 	// memfile does not implement io.Closer interface.
