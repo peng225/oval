@@ -2,6 +2,7 @@ package datasource
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -86,7 +87,6 @@ func Valid(obj *object.Object, reader io.Reader) error {
 	for i := 0; i < obj.Size/dataUnitSize; i++ {
 		err := validDataUnit(i, obj, data[dataUnitSize*i:dataUnitSize*(i+1)])
 		if err != nil {
-			// TODO: How to dump the result
 			return err
 		}
 	}
@@ -97,29 +97,29 @@ func validDataUnit(unitCount int, obj *object.Object, data []byte) error {
 	bucketName := data[0:object.MAX_BUCKET_NAME_LENGTH]
 	current := object.MAX_BUCKET_NAME_LENGTH
 	if obj.BucketName != strings.TrimSpace(string(bucketName)) {
-		return fmt.Errorf("Bucket name is wrong. (expected = \"%s\", actual = \"%s\")\n",
-			obj.BucketName, strings.TrimSpace(string(bucketName)))
+		return fmt.Errorf("Bucket name is wrong. (expected = \"%s\", actual = \"%s\")\n%s\n",
+			obj.BucketName, strings.TrimSpace(string(bucketName)), hex.Dump(data))
 	}
 
 	key := data[current : current+object.MAX_KEY_LENGTH]
 	current = current + object.MAX_KEY_LENGTH
 	if obj.Key != strings.TrimSpace(string(key)) {
-		return fmt.Errorf("Key name is wrong. (expected = \"%s\", actual = \"%s\")\n",
-			obj.BucketName, strings.TrimSpace(string(key)))
+		return fmt.Errorf("Key name is wrong. (expected = \"%s\", actual = \"%s\")\n%s\n",
+			obj.Key, strings.TrimSpace(string(key)), hex.Dump(data))
 	}
 
 	writeCount := binary.LittleEndian.Uint32(data[current : current+4])
 	current = current + 4
 	if uint32(obj.WriteCount) != writeCount {
-		return fmt.Errorf("WriteCount is wrong. (expected = \"%d\", actual = \"%d\")\n",
-			obj.WriteCount, writeCount)
+		return fmt.Errorf("WriteCount is wrong. (expected = \"%d\", actual = \"%d\")\n%s\n",
+			obj.WriteCount, writeCount, hex.Dump(data))
 	}
 
 	offsetInObject := binary.LittleEndian.Uint32(data[current : current+4])
 	current = current + 4
 	if uint32(unitCount*dataUnitSize) != offsetInObject {
-		return fmt.Errorf("OffsetInObject is wrong. (expected = \"%d\", actual = \"%d\")\n",
-			unitCount*dataUnitSize, offsetInObject)
+		return fmt.Errorf("OffsetInObject is wrong. (expected = \"%d\", actual = \"%d\")\n%s\n",
+			unitCount*dataUnitSize, offsetInObject, hex.Dump(data))
 	}
 
 	return nil

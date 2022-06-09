@@ -45,7 +45,7 @@ func (v *Validator) put() {
 		}
 		err := datasource.Valid(obj, getBeforeRes.Body)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Data validation error occurred before put.\n%v", err)
 		}
 		v.st.AddGetForValidCount()
 	}
@@ -78,7 +78,7 @@ func (v *Validator) put() {
 	defer getAfterRes.Body.Close()
 	err = datasource.Valid(obj, getAfterRes.Body)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Data validation error occurred after put.\n%v", err)
 	}
 	v.st.AddGetForValidCount()
 }
@@ -100,7 +100,7 @@ func (v *Validator) get() {
 	defer res.Body.Close()
 	err = datasource.Valid(obj, res.Body)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Data validation error occurred at get operation.\n%v", err)
 	}
 	v.st.AddGetCount()
 }
@@ -122,7 +122,7 @@ func (v *Validator) delete() {
 	defer getBeforeRes.Body.Close()
 	err = datasource.Valid(obj, getBeforeRes.Body)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Data validation error occurred before delete.\n%v", err)
 	}
 	v.st.AddGetForValidCount()
 
