@@ -47,7 +47,7 @@ func (v *Validator) put() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		v.st.AddGetCount()
+		v.st.AddGetForValidCount()
 	}
 
 	v.objectList.RegisterToExistingList(obj.Key)
@@ -80,7 +80,7 @@ func (v *Validator) put() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	v.st.AddGetCount()
+	v.st.AddGetForValidCount()
 }
 
 func (v *Validator) get() {
@@ -124,7 +124,7 @@ func (v *Validator) delete() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	v.st.AddGetCount()
+	v.st.AddGetForValidCount()
 
 	_, err = v.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
 		Bucket: &v.BucketName,

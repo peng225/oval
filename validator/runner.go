@@ -24,6 +24,7 @@ type Runner struct {
 	MaxSize       int
 	TimeInMs      int64
 	BucketName    string
+	OpeRatios     []float64
 	validatorList []Validator
 	client        *s3.Client
 	st            stat.Stat
@@ -141,5 +142,12 @@ const (
 
 func (r *Runner) selectOperation() Operation {
 	rand.Seed(time.Now().UnixNano())
-	return Operation(rand.Intn(int(NumOperation)))
+	randVal := rand.Float64()
+	if randVal < r.OpeRatios[0] {
+		return Put
+	} else if randVal < r.OpeRatios[0]+r.OpeRatios[1] {
+		return Get
+	} else {
+		return Delete
+	}
 }
