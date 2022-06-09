@@ -70,8 +70,16 @@ func generateDataUnit(unitCount int, obj *object.Object, writer io.Writer) {
 	writer.Write(numBinBuf)
 
 	unitBodyStartPos := object.MAX_BUCKET_NAME_LENGTH + object.MAX_KEY_LENGTH + dataUnitHeaderSizeWithoutBucketAndKey
-	for i := unitBodyStartPos; i < dataUnitSize; i++ {
-		writer.Write([]byte{byte(i % 256)})
+	tmpData := make([]byte, 4)
+	for i := unitBodyStartPos; i < dataUnitSize; i += 4 {
+		tmpData[0] = byte(i)
+		tmpData[1] = byte(i + 1)
+		tmpData[2] = byte(i + 2)
+		tmpData[3] = byte(i + 3)
+		_, err := writer.Write(tmpData)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
