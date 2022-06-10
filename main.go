@@ -37,15 +37,14 @@ func main() {
 	}
 
 	r := validator.Runner{
-		NumObj:     numObj,
-		NumWorker:  numWorker,
-		MinSize:    minSize,
-		MaxSize:    maxSize,
-		TimeInMs:   time * 1000,
-		BucketName: bucketName,
-		OpeRatios:  opeRatios,
+		NumObj:    numObj,
+		NumWorker: numWorker,
+		MinSize:   minSize,
+		MaxSize:   maxSize,
+		TimeInMs:  time * 1000,
+		OpeRatios: opeRatios,
 	}
 
-	r.Init()
+	r.Init(bucketName)
 	r.Run()
 }

@@ -1,14 +1,12 @@
 package validator
 
 import (
-	"context"
 	"errors"
 	"log"
 
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/peng225/oval/datasource"
 	"github.com/peng225/oval/object"
+	"github.com/peng225/oval/s3_client"
 	"github.com/peng225/oval/stat"
 )
 
@@ -16,7 +14,7 @@ type Validator struct {
 	MinSize    int
 	MaxSize    int
 	BucketName string
-	client     *s3.Client
+	client     *s3_client.S3Client
 	objectList object.ObjectList
 	st         *stat.Stat
 }
@@ -25,25 +23,24 @@ func (v *Validator) put() {
 	obj := v.objectList.GetRandomObject()
 
 	// Validation before write
-	getBeforeRes, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{
-		Bucket: &v.BucketName,
-		Key:    &obj.Key,
-	})
+	getBeforeBody, err := v.client.GetObject(v.BucketName, obj.Key)
 	if err != nil {
-		var nsk *types.NoSuchKey
+		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
 			if v.objectList.Exist(obj.Key) {
 				// expect: exists, actual: does not exist
 				log.Fatalf("An object has been lost. (key = %s)", obj.Key)
 			}
+		} else {
+			log.Fatal(err)
 		}
 	} else {
-		defer getBeforeRes.Body.Close()
+		defer getBeforeBody.Close()
 		if !v.objectList.Exist(obj.Key) {
 			// expect: does not exist, actual: exists
 			log.Fatalf("An unexpected object was found. (key = %s)", obj.Key)
 		}
-		err := datasource.Valid(obj, getBeforeRes.Body)
+		err := datasource.Valid(obj, getBeforeBody)
 		if err != nil {
 			log.Fatalf("Data validation error occurred before put.\n%v", err)
 		}
@@ -57,26 +54,19 @@ func (v *Validator) put() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = v.client.PutObject(context.Background(), &s3.PutObjectInput{
-		Bucket: &v.BucketName,
-		Key:    &obj.Key,
-		Body:   body,
-	})
+	err = v.client.PutObject(v.BucketName, obj.Key, body)
 	if err != nil {
 		log.Fatal(err)
 	}
 	v.st.AddPutCount()
 
 	// Validation after write
-	getAfterRes, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{
-		Bucket: &v.BucketName,
-		Key:    &obj.Key,
-	})
+	getAfterBody, err := v.client.GetObject(v.BucketName, obj.Key)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer getAfterRes.Body.Close()
-	err = datasource.Valid(obj, getAfterRes.Body)
+	defer getAfterBody.Close()
+	err = datasource.Valid(obj, getAfterBody)
 	if err != nil {
 		log.Fatalf("Data validation error occurred after put.\n%v", err)
 	}
@@ -90,15 +80,12 @@ func (v *Validator) get() {
 	}
 
 	// Validation on get
-	res, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{
-		Bucket: &v.BucketName,
-		Key:    &obj.Key,
-	})
+	body, err := v.client.GetObject(v.BucketName, obj.Key)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer res.Body.Close()
-	err = datasource.Valid(obj, res.Body)
+	defer body.Close()
+	err = datasource.Valid(obj, body)
 	if err != nil {
 		log.Fatalf("Data validation error occurred at get operation.\n%v", err)
 	}
@@ -112,41 +99,32 @@ func (v *Validator) delete() {
 	}
 
 	// Validation before delete
-	getBeforeRes, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{
-		Bucket: &v.BucketName,
-		Key:    &obj.Key,
-	})
+	getBeforeBody, err := v.client.GetObject(v.BucketName, obj.Key)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer getBeforeRes.Body.Close()
-	err = datasource.Valid(obj, getBeforeRes.Body)
+	defer getBeforeBody.Close()
+	err = datasource.Valid(obj, getBeforeBody)
 	if err != nil {
 		log.Fatalf("Data validation error occurred before delete.\n%v", err)
 	}
 	v.st.AddGetForValidCount()
 
-	_, err = v.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
-		Bucket: &v.BucketName,
-		Key:    &obj.Key,
-	})
+	err = v.client.DeleteObject(v.BucketName, obj.Key)
 	if err != nil {
 		log.Fatal(err)
 	}
 	v.st.AddDeleteCount()
 
 	// Validation after delete
-	getAfterRes, err := v.client.GetObject(context.Background(), &s3.GetObjectInput{
-		Bucket: &v.BucketName,
-		Key:    &obj.Key,
-	})
+	getAfterBody, err := v.client.GetObject(v.BucketName, obj.Key)
 	if err != nil {
-		var nsk *types.NoSuchKey
+		var nsk *s3_client.NoSuchKey
 		if !errors.As(err, &nsk) {
-			log.Fatalf("Unexpected error occurred. (err = %w)", err)
+			log.Fatalf("Unexpected error occurred. (err = %v)", err)
 		}
 	} else {
-		defer getAfterRes.Body.Close()
+		defer getAfterBody.Close()
 		log.Fatalf("expected: object not found, actual: object found. (obj = %v)", *obj)
 	}
 	obj.Clear()

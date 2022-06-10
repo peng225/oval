@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -9,10 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/peng225/oval/s3_client"
 	"github.com/peng225/oval/stat"
 	"github.com/pkg/profile"
 )
@@ -23,50 +19,20 @@ type Runner struct {
 	MinSize       int
 	MaxSize       int
 	TimeInMs      int64
-	BucketName    string
 	OpeRatios     []float64
 	validatorList []Validator
-	client        *s3.Client
+	client        *s3_client.S3Client
 	st            stat.Stat
 }
 
-func (r *Runner) Init() {
-	// TODO: remove the dependency on MinIO
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		return aws.Endpoint{
-			PartitionID:       "aws",
-			URL:               "http://127.0.0.1:9000",
-			SigningRegion:     "jp-tokyo-test",
-			HostnameImmutable: true,
-		}, nil
-	})
-	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithEndpointResolverWithOptions(customResolver))
+func (r *Runner) Init(bucketName string) {
+	r.client = &s3_client.S3Client{}
+	r.client.Init()
+	err := r.client.HeadBucket(bucketName)
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Create an Amazon S3 service client
-	r.client = s3.NewFromConfig(cfg)
-
-	r.validatorList = make([]Validator, r.NumWorker)
-	for i, _ := range r.validatorList {
-		r.validatorList[i].MinSize = r.MinSize
-		r.validatorList[i].MaxSize = r.MaxSize
-		r.validatorList[i].BucketName = r.BucketName
-		r.validatorList[i].client = r.client
-		r.validatorList[i].objectList.Init(r.BucketName, r.NumObj/r.NumWorker, r.NumObj/r.NumWorker*i)
-		r.validatorList[i].st = &r.st
-	}
-
-	_, err = r.client.HeadBucket(context.Background(), &s3.HeadBucketInput{
-		Bucket: &r.BucketName,
-	})
-	if err != nil {
-		var nf *types.NotFound
+		var nf *s3_client.NotFound
 		if errors.As(err, &nf) {
-			_, err = r.client.CreateBucket(context.Background(), &s3.CreateBucketInput{
-				Bucket: &r.BucketName,
-			})
+			err = r.client.CreateBucket(bucketName)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -74,33 +40,20 @@ func (r *Runner) Init() {
 			log.Fatal(err)
 		}
 	} else {
-		r.clearBucket()
-	}
-}
-
-func (r *Runner) clearBucket() {
-	for {
-		var continuationToken *string = nil
-		listRes, err := r.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
-			Bucket:            &r.BucketName,
-			ContinuationToken: continuationToken,
-		})
+		err = r.client.ClearBucket(bucketName)
 		if err != nil {
 			log.Fatal(err)
 		}
-		if len(listRes.Contents) == 0 {
-			break
-		}
-		for _, obj := range listRes.Contents {
-			_, err := r.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
-				Bucket: &r.BucketName,
-				Key:    obj.Key,
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-		continuationToken = listRes.NextContinuationToken
+	}
+
+	r.validatorList = make([]Validator, r.NumWorker)
+	for i, _ := range r.validatorList {
+		r.validatorList[i].MinSize = r.MinSize
+		r.validatorList[i].MaxSize = r.MaxSize
+		r.validatorList[i].BucketName = bucketName
+		r.validatorList[i].client = r.client
+		r.validatorList[i].objectList.Init(bucketName, r.NumObj/r.NumWorker, r.NumObj/r.NumWorker*i)
+		r.validatorList[i].st = &r.st
 	}
 }
 
