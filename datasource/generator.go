@@ -84,16 +84,20 @@ func generateDataUnit(unitCount int, obj *object.Object, writer io.Writer) {
 }
 
 func Valid(obj *object.Object, reader io.Reader) error {
-	// TODO: for large data, io.ReadAll is not realistic.
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return err
-	}
-	if obj.Size != len(data) {
-		return fmt.Errorf("Object size is wrong. (expected = %d, actual = %d)\n", obj.Size, len(data))
-	}
+	data := make([]byte, dataUnitSize)
 	for i := 0; i < obj.Size/dataUnitSize; i++ {
-		err := validDataUnit(i, obj, data[dataUnitSize*i:dataUnitSize*(i+1)])
+		readSum := 0
+		for readSum != len(data) {
+			n, err := reader.Read(data[readSum:])
+			if err != nil && err != io.EOF {
+				return err
+			}
+			readSum += n
+		}
+		if readSum != dataUnitSize {
+			return fmt.Errorf("Could not read some data. (expected: %vbyte, actual: %vbyte)\n%v", dataUnitSize, readSum, hex.Dump(data[0:readSum]))
+		}
+		err := validDataUnit(i, obj, data)
 		if err != nil {
 			return err
 		}
