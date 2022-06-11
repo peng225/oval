@@ -42,7 +42,7 @@ func Generate(minSize, maxSize int, obj *object.Object) (io.ReadSeeker, int, err
 	}
 
 	if len(f.Bytes()) != dataSize {
-		log.Fatal("Generated data size is wrong.")
+		return nil, 0, fmt.Errorf("Generated data size is wrong. (expected: %v, actual: %v)", dataSize, f.Bytes())
 	}
 
 	f.Seek(0, 0)
