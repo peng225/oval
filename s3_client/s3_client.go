@@ -32,19 +32,27 @@ func (nf *NotFound) Error() string {
 	return nf.errorMessage
 }
 
-func (s *S3Client) Init() {
-	// TODO: remove the dependency on MinIO
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		return aws.Endpoint{
-			PartitionID:       "aws",
-			URL:               "http://127.0.0.1:9000",
-			SigningRegion:     "jp-tokyo-test",
-			HostnameImmutable: true,
-		}, nil
-	})
-	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithEndpointResolverWithOptions(customResolver))
-	if err != nil {
-		log.Fatal(err)
+func (s *S3Client) Init(endpoint string) {
+	var cfg aws.Config
+	var err error
+	if endpoint != "" {
+		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+			return aws.Endpoint{
+				PartitionID:       "aws",
+				URL:               endpoint,
+				SigningRegion:     region,
+				HostnameImmutable: true,
+			}, nil
+		})
+		cfg, err = config.LoadDefaultConfig(context.Background(), config.WithEndpointResolverWithOptions(customResolver))
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		cfg, err = config.LoadDefaultConfig(context.Background())
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// Create an Amazon S3 service client

@@ -16,6 +16,7 @@ func main() {
 		time        int64
 		bucketName  string
 		opeRatioStr string
+		endpoint    string
 	)
 	flag.IntVar(&numObj, "num_obj", 10, "The maximum number of objects.")
 	flag.IntVar(&numWorker, "num_worker", 1, "The number of workers.")
@@ -23,6 +24,7 @@ func main() {
 	flag.Int64Var(&time, "time", 3, "Time duration in seconds to run the workload.")
 	flag.StringVar(&bucketName, "bucket", "", "The name of the bucket.")
 	flag.StringVar(&opeRatioStr, "ope_ratio", "1,1,1", "The ration of put, get and delete operations. Eg. \"2,3,1\"")
+	flag.StringVar(&endpoint, "endpoint", "", "The endpoint URL and TCP port number. Eg. \"http://127.0.0.1:9000\"")
 	flag.Parse()
 
 	log.SetFlags(log.Lshortfile)
@@ -45,6 +47,6 @@ func main() {
 		OpeRatios: opeRatios,
 	}
 
-	r.Init(bucketName)
+	r.Init(bucketName, endpoint)
 	r.Run()
 }

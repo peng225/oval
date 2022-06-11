@@ -25,9 +25,9 @@ type Runner struct {
 	st            stat.Stat
 }
 
-func (r *Runner) Init(bucketName string) {
+func (r *Runner) Init(bucketName, endpoint string) {
 	r.client = &s3_client.S3Client{}
-	r.client.Init()
+	r.client.Init(endpoint)
 	err := r.client.HeadBucket(bucketName)
 	if err != nil {
 		var nf *s3_client.NotFound
