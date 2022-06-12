@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"strings"
 	"time"
@@ -38,27 +37,33 @@ func Generate(minSize, maxSize int, obj *object.Object) (io.ReadSeeker, int, err
 	// memfile does not implement io.Closer interface.
 
 	for i := 0; i < dataSize/dataUnitSize; i++ {
-		generateDataUnit(i, obj, f)
+		err := generateDataUnit(i, obj, f)
+		if err != nil {
+			return nil, 0, err
+		}
 	}
 
 	if len(f.Bytes()) != dataSize {
 		return nil, 0, fmt.Errorf("Generated data size is wrong. (expected: %v, actual: %v)", dataSize, f.Bytes())
 	}
 
-	f.Seek(0, 0)
+	_, err := f.Seek(0, 0)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	return f, dataSize, nil
 }
 
-func generateDataUnit(unitCount int, obj *object.Object, writer io.Writer) {
+func generateDataUnit(unitCount int, obj *object.Object, writer io.Writer) error {
 	bucketKeyformat := fmt.Sprintf("%%-%vs%%-%vs", object.MAX_BUCKET_NAME_LENGTH, object.MAX_KEY_LENGTH)
 	offsetInObject := unitCount * dataUnitSize
 	n, err := writer.Write([]byte(fmt.Sprintf(bucketKeyformat, obj.BucketName, obj.Key)))
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if n != object.MAX_BUCKET_NAME_LENGTH+object.MAX_KEY_LENGTH {
-		log.Fatal("bucket name and key was not written correctly.")
+		return errors.New("bucket name and key was not written correctly.")
 	}
 
 	numBinBuf := make([]byte, dataUnitHeaderSizeWithoutBucketAndKey)
@@ -78,9 +83,10 @@ func generateDataUnit(unitCount int, obj *object.Object, writer io.Writer) {
 		tmpData[3] = byte(i + 3)
 		_, err := writer.Write(tmpData)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
+	return nil
 }
 
 func Valid(obj *object.Object, reader io.Reader) error {
