@@ -17,6 +17,7 @@ func main() {
 		bucketName  string
 		opeRatioStr string
 		endpoint    string
+		profiler    bool
 	)
 	flag.IntVar(&numObj, "num_obj", 10, "The maximum number of objects.")
 	flag.IntVar(&numWorker, "num_worker", 1, "The number of workers.")
@@ -25,6 +26,7 @@ func main() {
 	flag.StringVar(&bucketName, "bucket", "", "The name of the bucket.")
 	flag.StringVar(&opeRatioStr, "ope_ratio", "1,1,1", "The ration of put, get and delete operations. Eg. \"2,3,1\"")
 	flag.StringVar(&endpoint, "endpoint", "", "The endpoint URL and TCP port number. Eg. \"http://127.0.0.1:9000\"")
+	flag.BoolVar(&profiler, "profiler", false, "Enable profiler.")
 	flag.Parse()
 
 	log.SetFlags(log.Lshortfile)
@@ -45,6 +47,7 @@ func main() {
 		MaxSize:   maxSize,
 		TimeInMs:  time * 1000,
 		OpeRatios: opeRatios,
+		Profiler:  profiler,
 	}
 
 	r.Init(bucketName, endpoint)

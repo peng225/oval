@@ -20,6 +20,7 @@ type Runner struct {
 	MaxSize       int
 	TimeInMs      int64
 	OpeRatios     []float64
+	Profiler      bool
 	validatorList []Validator
 	client        *s3_client.S3Client
 	st            stat.Stat
@@ -59,7 +60,9 @@ func (r *Runner) Init(bucketName, endpoint string) {
 
 func (r *Runner) Run() {
 	fmt.Println("Validation start.")
-	defer profile.Start(profile.ProfilePath(".")).Stop()
+	if r.Profiler {
+		defer profile.Start(profile.ProfilePath(".")).Stop()
+	}
 	wg := &sync.WaitGroup{}
 	now := time.Now()
 	for i := 0; i < r.NumWorker; i++ {
