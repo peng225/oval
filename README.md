@@ -72,14 +72,46 @@ Usage of ./oval:
 
 ### Example
 
+#### Success case
+
 ```
-$ ./oval -size 4k-16k --time 10 -num_obj 1000 -num_worker 4 -bucket test-bucket
+$ ./oval -size 4k-16k --time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
 Validation start.
-profile.go:175: profile: cpu profiling enabled, cpu.pprof
 Validation finished.
 Statistics report.
-put count: 1157
-get count: 3296
-delete count: 1050
-profile.go:175: profile: cpu profiling disabled, cpu.pprof
+put count: 617
+get count: 509
+get (for validation) count: 1204
+delete count: 578
+```
+
+#### Data corruption case
+
+```
+./oval -size 4k-16k --time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
+Validation start.
+validator.go:71: Data validation error occurred after put.
+WriteCount is wrong. (expected = "2", actual = "1")
+00000000  74 65 73 74 2d 62 75 63  6b 65 74 20 6f 76 30 30  |test-bucket ov00|
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ bucket name
+                                               ^^^^^^^^^^^
+00000010  30 30 30 30 30 37 33 35  01 00 00 00 00 04 00 00  |00000735........|
+          ^^^^^^^^^^^^^^^^^^^^^^^ key name
+                                   ^^^^^^^^^^^ write count
+                                               ^^^^^^^^^^^ byte offset in this object
+00000020  5d e8 a5 62 00 00 00 00  28 29 2a 2b 2c 2d 2e 2f  |]..b....()*+,-./|
+          ^^^^^^^^^^^^^^^^^^^^^^^ unix time
+00000030  30 31 32 33 34 35 36 37  38 39 3a 3b 3c 3d 3e 3f  |0123456789:;<=>?|
+00000040  40 41 42 43 44 45 46 47  48 49 4a 4b 4c 4d 4e 4f  |@ABCDEFGHIJKLMNO|
+00000050  50 51 52 53 54 55 56 57  58 59 5a 5b 5c 5d 5e 5f  |PQRSTUVWXYZ[\]^_|
+00000060  60 61 62 63 64 65 66 67  68 69 6a 6b 6c 6d 6e 6f  |`abcdefghijklmno|
+00000070  70 71 72 73 74 75 76 77  78 79 7a 7b 7c 7d 7e 7f  |pqrstuvwxyz{|}~.|
+00000080  80 81 82 83 84 85 86 87  88 89 8a 8b 8c 8d 8e 8f  |................|
+00000090  90 91 92 93 94 95 96 97  98 99 9a 9b 9c 9d 9e 9f  |................|
+000000a0  a0 a1 a2 a3 a4 a5 a6 a7  a8 a9 aa ab ac ad ae af  |................|
+000000b0  b0 b1 b2 b3 b4 b5 b6 b7  b8 b9 ba bb bc bd be bf  |................|
+000000c0  c0 c1 c2 c3 c4 c5 c6 c7  c8 c9 ca cb cc cd ce cf  |................|
+000000d0  d0 d1 d2 d3 d4 d5 d6 d7  d8 d9 da db dc dd de df  |................|
+000000e0  e0 e1 e2 e3 e4 e5 e6 e7  e8 e9 ea eb ec ed ee ef  |................|
+000000f0  f0 f1 f2 f3 f4 f5 f6 f7  f8 f9 fa fb fc fd fe ff  |................|
 ```
