@@ -16,10 +16,10 @@ import (
 
 const (
 	dataUnitSize                          = 256
-	dataUnitHeaderSizeWithoutBucketAndKey = 16
+	dataUnitHeaderSizeWithoutBucketAndKey = 20
 )
 
-func Generate(minSize, maxSize int, obj *object.Object) (io.ReadSeeker, int, error) {
+func Generate(minSize, maxSize, workerID int, obj *object.Object) (io.ReadSeeker, int, error) {
 	if minSize%dataUnitSize != 0 {
 		return nil, 0, fmt.Errorf("minSize should be a multiple of %v.", dataUnitSize)
 	}
@@ -37,7 +37,7 @@ func Generate(minSize, maxSize int, obj *object.Object) (io.ReadSeeker, int, err
 	// memfile does not implement io.Closer interface.
 
 	for i := 0; i < dataSize/dataUnitSize; i++ {
-		err := generateDataUnit(i, obj, f)
+		err := generateDataUnit(i, workerID, obj, f)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -55,7 +55,7 @@ func Generate(minSize, maxSize int, obj *object.Object) (io.ReadSeeker, int, err
 	return f, dataSize, nil
 }
 
-func generateDataUnit(unitCount int, obj *object.Object, writer io.Writer) error {
+func generateDataUnit(unitCount, workerID int, obj *object.Object, writer io.Writer) error {
 	bucketKeyformat := fmt.Sprintf("%%-%vs%%-%vs", object.MAX_BUCKET_NAME_LENGTH, object.MAX_KEY_LENGTH)
 	offsetInObject := unitCount * dataUnitSize
 	n, err := writer.Write([]byte(fmt.Sprintf(bucketKeyformat, obj.BucketName, obj.Key)))
@@ -72,6 +72,7 @@ func generateDataUnit(unitCount int, obj *object.Object, writer io.Writer) error
 	dt := time.Now()
 	unixTime := dt.UnixMicro()
 	binary.LittleEndian.PutUint64(numBinBuf[8:], uint64(unixTime))
+	binary.LittleEndian.PutUint32(numBinBuf[16:], uint32(workerID))
 	writer.Write(numBinBuf)
 
 	unitBodyStartPos := object.MAX_BUCKET_NAME_LENGTH + object.MAX_KEY_LENGTH + dataUnitHeaderSizeWithoutBucketAndKey
@@ -89,7 +90,7 @@ func generateDataUnit(unitCount int, obj *object.Object, writer io.Writer) error
 	return nil
 }
 
-func Valid(obj *object.Object, reader io.Reader) error {
+func Valid(workerID int, obj *object.Object, reader io.Reader) error {
 	data := make([]byte, dataUnitSize)
 	for i := 0; i < obj.Size/dataUnitSize; i++ {
 		readSum := 0
@@ -103,7 +104,7 @@ func Valid(obj *object.Object, reader io.Reader) error {
 		if readSum != dataUnitSize {
 			return fmt.Errorf("Could not read some data. (expected: %vbyte, actual: %vbyte)\n%v", dataUnitSize, readSum, hex.Dump(data[0:readSum]))
 		}
-		err := validDataUnit(i, obj, data)
+		err := validDataUnit(i, workerID, obj, data)
 		if err != nil {
 			return err
 		}
@@ -111,7 +112,7 @@ func Valid(obj *object.Object, reader io.Reader) error {
 	return nil
 }
 
-func validDataUnit(unitCount int, obj *object.Object, data []byte) error {
+func validDataUnit(unitCount, workerID int, obj *object.Object, data []byte) error {
 	bucketName := data[0:object.MAX_BUCKET_NAME_LENGTH]
 	current := object.MAX_BUCKET_NAME_LENGTH
 	if obj.BucketName != strings.TrimSpace(string(bucketName)) {
@@ -127,17 +128,27 @@ func validDataUnit(unitCount int, obj *object.Object, data []byte) error {
 	}
 
 	writeCount := binary.LittleEndian.Uint32(data[current : current+4])
-	current = current + 4
+	current += 4
 	if uint32(obj.WriteCount) != writeCount {
 		return fmt.Errorf("WriteCount is wrong. (expected = \"%d\", actual = \"%d\")\n%s\n",
 			obj.WriteCount, writeCount, hex.Dump(data))
 	}
 
 	offsetInObject := binary.LittleEndian.Uint32(data[current : current+4])
-	current = current + 4
+	current += 4
 	if uint32(unitCount*dataUnitSize) != offsetInObject {
 		return fmt.Errorf("OffsetInObject is wrong. (expected = \"%d\", actual = \"%d\")\n%s\n",
 			unitCount*dataUnitSize, offsetInObject, hex.Dump(data))
+	}
+
+	// Skip the unix time area.
+	current += 8
+
+	actualWorkerID := int(binary.LittleEndian.Uint32(data[current : current+4]))
+	current = current + 4
+	if workerID != actualWorkerID {
+		return fmt.Errorf("WorkerID is wrong. (expected = \"%d\", actual = \"%d\")\n%s\n",
+			workerID, actualWorkerID, hex.Dump(data))
 	}
 
 	return nil
