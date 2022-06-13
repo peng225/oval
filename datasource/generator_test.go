@@ -36,7 +36,9 @@ func (suite *GeneratorSuite) TestGenerateDataUnitSuccess() {
 		WriteCount: 300,
 		BucketName: testBucketName,
 	}
-	suite.Equal(nil, generateDataUnit(4, obj, suite.f))
+	workerID := 100
+
+	suite.Equal(nil, generateDataUnit(4, workerID, obj, suite.f))
 	suite.f.Seek(0, 0)
 	data, err := io.ReadAll(suite.f)
 	suite.NoError(err)
@@ -53,6 +55,10 @@ func (suite *GeneratorSuite) TestGenerateDataUnitSuccess() {
 	current += 4
 	// Check offset
 	suite.Equal([]byte{0x00, 0x04, 0x00, 0x00}, data[current:current+4]) // hex(256*4) = 0x400
+	current += 4
+	current += 8 // Skip unix time area
+	// Check offset
+	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
 }
 
 func (suite *GeneratorSuite) TestGenerateSuccess() {
@@ -62,7 +68,9 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 		WriteCount: 300,
 		BucketName: testBucketName,
 	}
-	readSeeker, size, err := Generate(512, 512, obj)
+	workerID := 100
+
+	readSeeker, size, err := Generate(512, 512, workerID, obj)
 	suite.NoError(err)
 	suite.Equal(512, size)
 	data, err := io.ReadAll(readSeeker)
@@ -80,6 +88,10 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 	current += 4
 	// Check offset
 	suite.Equal([]byte{0x00, 0x00, 0x00, 0x00}, data[current:current+4])
+	current += 4
+	current += 8 // Skip unix time area
+	// Check offset
+	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
 
 	// 2nd data unit
 	current = dataUnitSize
@@ -94,6 +106,10 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 	current += 4
 	// Check offset
 	suite.Equal([]byte{0x00, 0x01, 0x00, 0x00}, data[current:current+4]) // hex(256*1) = 0x100
+	current += 4
+	current += 8 // Skip unix time area
+	// Check offset
+	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
 }
 
 func (suite *GeneratorSuite) TestValidDataUnitSuccess() {
@@ -103,13 +119,15 @@ func (suite *GeneratorSuite) TestValidDataUnitSuccess() {
 		WriteCount: 300,
 		BucketName: testBucketName,
 	}
-	err := generateDataUnit(4, obj, suite.f)
+	workerID := 100
+
+	err := generateDataUnit(4, workerID, obj, suite.f)
 	suite.NoError(err)
 	_, err = suite.f.Seek(0, 0)
 	suite.NoError(err)
 	data, err := io.ReadAll(suite.f)
 	suite.NoError(err)
-	suite.Equal(nil, validDataUnit(4, obj, data))
+	suite.Equal(nil, validDataUnit(4, workerID, obj, data))
 }
 
 func (suite *GeneratorSuite) TestValidSuccess() {
@@ -118,11 +136,13 @@ func (suite *GeneratorSuite) TestValidSuccess() {
 		WriteCount: 300,
 		BucketName: testBucketName,
 	}
-	readSeeker, size, err := Generate(1024, 1024, obj)
+	workerID := 100
+
+	readSeeker, size, err := Generate(1024, 1024, workerID, obj)
 	suite.NoError(err)
 	obj.Size = size
 
-	err = Valid(obj, readSeeker)
+	err = Valid(workerID, obj, readSeeker)
 	suite.NoError(err)
 }
 
