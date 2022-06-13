@@ -23,7 +23,7 @@ type Validator struct {
 
 func (v *Validator) ShowInfo() {
 	head, tail := v.objectList.GetHeadAndTailKey()
-	fmt.Printf("Worker ID = %d, Key = [%s, %s]\n", v.ID, head, tail)
+	fmt.Printf("Worker ID = %#x, Key = [%s, %s]\n", v.ID, head, tail)
 }
 
 func (v *Validator) Put() {

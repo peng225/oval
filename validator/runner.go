@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	maxValidatorID = 10000
+	maxValidatorID = 0x10000
 )
 
 type Runner struct {
