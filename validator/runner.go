@@ -81,11 +81,11 @@ func (r *Runner) Run() {
 				operation := r.selectOperation()
 				switch operation {
 				case Put:
-					r.validatorList[workerId].put()
+					r.validatorList[workerId].Put()
 				case Get:
-					r.validatorList[workerId].get()
+					r.validatorList[workerId].Get()
 				case Delete:
-					r.validatorList[workerId].delete()
+					r.validatorList[workerId].Delete()
 				}
 			}
 		}(i)

@@ -26,6 +26,7 @@ func (v *Validator) ShowInfo() {
 	fmt.Printf("Worker ID = %d, Key = [%s, %s]\n", v.ID, head, tail)
 }
 
+func (v *Validator) Put() {
 	obj := v.objectList.GetRandomObject()
 
 	// Validation before write
@@ -79,7 +80,7 @@ func (v *Validator) ShowInfo() {
 	v.st.AddGetForValidCount()
 }
 
-func (v *Validator) get() {
+func (v *Validator) Get() {
 	obj := v.objectList.GetExistingRandomObject()
 	if obj == nil {
 		return
@@ -98,7 +99,7 @@ func (v *Validator) get() {
 	v.st.AddGetCount()
 }
 
-func (v *Validator) delete() {
+func (v *Validator) Delete() {
 	obj := v.objectList.PopExistingRandomObject()
 	if obj == nil {
 		return
