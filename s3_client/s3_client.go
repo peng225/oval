@@ -70,8 +70,8 @@ func (s *S3Client) CreateBucket(bucketName string) error {
 }
 
 func (s *S3Client) ClearBucket(bucketName string) error {
+	var continuationToken *string = nil
 	for {
-		var continuationToken *string = nil
 		listRes, err := s.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
 			Bucket:            &bucketName,
 			ContinuationToken: continuationToken,
