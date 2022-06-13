@@ -70,7 +70,7 @@ func generateDataUnit(unitCount int, obj *object.Object, writer io.Writer) error
 	binary.LittleEndian.PutUint32(numBinBuf[0:4], uint32(obj.WriteCount))
 	binary.LittleEndian.PutUint32(numBinBuf[4:8], uint32(offsetInObject))
 	dt := time.Now()
-	unixTime := dt.Unix()
+	unixTime := dt.UnixMicro()
 	binary.LittleEndian.PutUint64(numBinBuf[8:], uint64(unixTime))
 	writer.Write(numBinBuf)
 
