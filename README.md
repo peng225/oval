@@ -43,6 +43,7 @@ and embeds the following information in the contents of the data unit itself:
 - Offset of the data unit
 - Unix time
   - This is not used for data validation, but is helpful to investigate when the corrupted data was written.
+- Worker ID
 
 If the read data include some unexpected content,
 Oval dumps the actual binary data,
@@ -76,31 +77,40 @@ Usage of ./oval:
 
 ```
 $ ./oval -size 4k-16k --time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
+Worker ID = 0xb67f, Key = [ov0000000000, ov0000000249]
+Worker ID = 0xb680, Key = [ov0000000250, ov0000000499]
+Worker ID = 0xb681, Key = [ov0000000500, ov0000000749]
+Worker ID = 0xb682, Key = [ov0000000750, ov0000000999]
 Validation start.
 Validation finished.
 Statistics report.
-put count: 617
-get count: 509
-get (for validation) count: 1204
-delete count: 578
+put count: 515
+get count: 499
+get (for validation) count: 992
+delete count: 465
 ```
 
 #### Data corruption case
 
 ```
-./oval -size 4k-16k --time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
+$ ./oval -size 4k-16k --time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
+Worker ID = 0xf10c, Key = [ov0000000000, ov0000000249]
+Worker ID = 0xf10d, Key = [ov0000000250, ov0000000499]
+Worker ID = 0xf10e, Key = [ov0000000500, ov0000000749]
+Worker ID = 0xf10f, Key = [ov0000000750, ov0000000999]
 Validation start.
-validator.go:71: Data validation error occurred after put.
+validator.go:78: Data validation error occurred after put.
 WriteCount is wrong. (expected = "2", actual = "1")
 00000000  74 65 73 74 2d 62 75 63  6b 65 74 20 6f 76 30 30  |test-bucket ov00|
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ bucket name
                                                ^^^^^^^^^^^
-00000010  30 30 30 30 30 37 33 35  01 00 00 00 00 04 00 00  |00000735........|
+00000010  30 30 30 30 30 33 33 30  01 00 00 00 00 04 00 00  |00000330........|
           ^^^^^^^^^^^^^^^^^^^^^^^ key name
                                    ^^^^^^^^^^^ write count
                                                ^^^^^^^^^^^ byte offset in this object
-00000020  5d e8 a5 62 00 00 00 00  28 29 2a 2b 2c 2d 2e 2f  |]..b....()*+,-./|
-          ^^^^^^^^^^^^^^^^^^^^^^^ unix time
+00000020  6d 9d 62 9c 55 e1 05 00  0d f1 00 00 2c 2d 2e 2f  |m.b.U.......,-./|
+          ^^^^^^^^^^^^^^^^^^^^^^^ unix time (micro sec)
+                                   ^^^^^^^^^^^ Worker ID
 00000030  30 31 32 33 34 35 36 37  38 39 3a 3b 3c 3d 3e 3f  |0123456789:;<=>?|
 00000040  40 41 42 43 44 45 46 47  48 49 4a 4b 4c 4d 4e 4f  |@ABCDEFGHIJKLMNO|
 00000050  50 51 52 53 54 55 56 57  58 59 5a 5b 5c 5d 5e 5f  |PQRSTUVWXYZ[\]^_|

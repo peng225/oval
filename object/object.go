@@ -109,3 +109,7 @@ func (ol *ObjectList) Exist(key string) bool {
 	}
 	return false
 }
+
+func (ol *ObjectList) GetHeadAndTailKey() (string, string) {
+	return ol.objectList[0].Key, ol.objectList[len(ol.objectList)-1].Key
+}

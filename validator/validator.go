@@ -2,6 +2,7 @@ package validator
 
 import (
 	"errors"
+	"fmt"
 	"log"
 
 	"github.com/peng225/oval/datasource"
@@ -11,6 +12,7 @@ import (
 )
 
 type Validator struct {
+	ID         int
 	MinSize    int
 	MaxSize    int
 	BucketName string
@@ -19,7 +21,12 @@ type Validator struct {
 	st         *stat.Stat
 }
 
-func (v *Validator) put() {
+func (v *Validator) ShowInfo() {
+	head, tail := v.objectList.GetHeadAndTailKey()
+	fmt.Printf("Worker ID = %#x, Key = [%s, %s]\n", v.ID, head, tail)
+}
+
+func (v *Validator) Put() {
 	obj := v.objectList.GetRandomObject()
 
 	// Validation before write
@@ -40,7 +47,7 @@ func (v *Validator) put() {
 			// expect: does not exist, actual: exists
 			log.Fatalf("An unexpected object was found. (key = %s)", obj.Key)
 		}
-		err := datasource.Valid(obj, getBeforeBody)
+		err := datasource.Valid(v.ID, obj, getBeforeBody)
 		if err != nil {
 			log.Fatalf("Data validation error occurred before put.\n%v", err)
 		}
@@ -49,7 +56,7 @@ func (v *Validator) put() {
 
 	v.objectList.RegisterToExistingList(obj.Key)
 	obj.WriteCount++
-	body, size, err := datasource.Generate(v.MinSize, v.MaxSize, obj)
+	body, size, err := datasource.Generate(v.MinSize, v.MaxSize, v.ID, obj)
 	obj.Size = size
 	if err != nil {
 		log.Fatal(err)
@@ -66,14 +73,14 @@ func (v *Validator) put() {
 		log.Fatal(err)
 	}
 	defer getAfterBody.Close()
-	err = datasource.Valid(obj, getAfterBody)
+	err = datasource.Valid(v.ID, obj, getAfterBody)
 	if err != nil {
 		log.Fatalf("Data validation error occurred after put.\n%v", err)
 	}
 	v.st.AddGetForValidCount()
 }
 
-func (v *Validator) get() {
+func (v *Validator) Get() {
 	obj := v.objectList.GetExistingRandomObject()
 	if obj == nil {
 		return
@@ -85,14 +92,14 @@ func (v *Validator) get() {
 		log.Fatal(err)
 	}
 	defer body.Close()
-	err = datasource.Valid(obj, body)
+	err = datasource.Valid(v.ID, obj, body)
 	if err != nil {
 		log.Fatalf("Data validation error occurred at get operation.\n%v", err)
 	}
 	v.st.AddGetCount()
 }
 
-func (v *Validator) delete() {
+func (v *Validator) Delete() {
 	obj := v.objectList.PopExistingRandomObject()
 	if obj == nil {
 		return
@@ -104,7 +111,7 @@ func (v *Validator) delete() {
 		log.Fatal(err)
 	}
 	defer getBeforeBody.Close()
-	err = datasource.Valid(obj, getBeforeBody)
+	err = datasource.Valid(v.ID, obj, getBeforeBody)
 	if err != nil {
 		log.Fatalf("Data validation error occurred before delete.\n%v", err)
 	}

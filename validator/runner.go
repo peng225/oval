@@ -13,6 +13,10 @@ import (
 	"github.com/pkg/profile"
 )
 
+const (
+	maxValidatorID = 0x10000
+)
+
 type Runner struct {
 	NumObj        int
 	NumWorker     int
@@ -48,13 +52,17 @@ func (r *Runner) Init(bucketName, endpoint string) {
 	}
 
 	r.validatorList = make([]Validator, r.NumWorker)
+	rand.Seed(time.Now().UnixNano())
+	startID := rand.Intn(maxValidatorID)
 	for i, _ := range r.validatorList {
+		r.validatorList[i].ID = (startID + i) % maxValidatorID
 		r.validatorList[i].MinSize = r.MinSize
 		r.validatorList[i].MaxSize = r.MaxSize
 		r.validatorList[i].BucketName = bucketName
 		r.validatorList[i].client = r.client
 		r.validatorList[i].objectList.Init(bucketName, r.NumObj/r.NumWorker, r.NumObj/r.NumWorker*i)
 		r.validatorList[i].st = &r.st
+		r.validatorList[i].ShowInfo()
 	}
 }
 
@@ -73,11 +81,11 @@ func (r *Runner) Run() {
 				operation := r.selectOperation()
 				switch operation {
 				case Put:
-					r.validatorList[workerId].put()
+					r.validatorList[workerId].Put()
 				case Get:
-					r.validatorList[workerId].get()
+					r.validatorList[workerId].Get()
 				case Delete:
-					r.validatorList[workerId].delete()
+					r.validatorList[workerId].Delete()
 				}
 			}
 		}(i)
