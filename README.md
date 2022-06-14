@@ -4,9 +4,10 @@ Oval is a data validation tool for S3 compatible object storages.
 
 # Motivation
 
-No storage systems can achieve 100% of data integrity. Unfortunately, data corruption sometimes occurs, and the business of storage users gets impacted terribly.
+Storage systems can hardly achieve 100% of data integrity. 
+Though there is a lot of possible cause of data corruption, the data corruption due to software bugs is catastrophic. So continuous efforts to reduce the possibility of data corruption are required.   
 
-There is a lot of possible cause of data corruption. Among them, the data corruption due to software bugs is catastrophic. Though some storage systems have an internal defense mechanism against data corruption, it is sometimes useless when the data get corrupted in an undetectable way, or if there are bugs in the defense mechanism itself. In that case, data will get corrupted silently.
+Some storage systems have an internal defense mechanism against data corruption. However, it is sometimes useless when the data get corrupted in undetectable ways, or if there are bugs in the defense mechanism itself. In that case, data will get corrupted silently.
 
 So, it is important for storage system's developers and users
 to check if their storage systems have enough data integrity from the storage user's point of view.
