@@ -102,7 +102,7 @@ func Valid(workerID int, obj *object.Object, reader io.Reader) error {
 			readSum += n
 		}
 		if readSum != dataUnitSize {
-			return fmt.Errorf("Could not read some data. (expected: %vbyte, actual: %vbyte)\n%v", dataUnitSize, readSum, hex.Dump(data[0:readSum]))
+			return fmt.Errorf("Could not read some data. (expected: %vbyte, actual: %vbyte)\n%v", dataUnitSize, readSum, dump(hex.Dump(data[0:readSum])))
 		}
 		err := validDataUnit(i, workerID, obj, data)
 		if err != nil {
@@ -117,28 +117,28 @@ func validDataUnit(unitCount, workerID int, obj *object.Object, data []byte) err
 	current := object.MAX_BUCKET_NAME_LENGTH
 	if obj.BucketName != strings.TrimSpace(string(bucketName)) {
 		return fmt.Errorf("Bucket name is wrong. (expected = \"%s\", actual = \"%s\")\n%s\n",
-			obj.BucketName, strings.TrimSpace(string(bucketName)), hex.Dump(data))
+			obj.BucketName, strings.TrimSpace(string(bucketName)), dump(hex.Dump(data)))
 	}
 
 	key := data[current : current+object.MAX_KEY_LENGTH]
 	current = current + object.MAX_KEY_LENGTH
 	if obj.Key != strings.TrimSpace(string(key)) {
 		return fmt.Errorf("Key name is wrong. (expected = \"%s\", actual = \"%s\")\n%s\n",
-			obj.Key, strings.TrimSpace(string(key)), hex.Dump(data))
+			obj.Key, strings.TrimSpace(string(key)), dump(hex.Dump(data)))
 	}
 
 	writeCount := binary.LittleEndian.Uint32(data[current : current+4])
 	current += 4
 	if uint32(obj.WriteCount) != writeCount {
 		return fmt.Errorf("WriteCount is wrong. (expected = \"%d\", actual = \"%d\")\n%s\n",
-			obj.WriteCount, writeCount, hex.Dump(data))
+			obj.WriteCount, writeCount, dump(hex.Dump(data)))
 	}
 
 	offsetInObject := binary.LittleEndian.Uint32(data[current : current+4])
 	current += 4
 	if uint32(unitCount*dataUnitSize) != offsetInObject {
 		return fmt.Errorf("OffsetInObject is wrong. (expected = \"%d\", actual = \"%d\")\n%s\n",
-			unitCount*dataUnitSize, offsetInObject, hex.Dump(data))
+			unitCount*dataUnitSize, offsetInObject, dump(hex.Dump(data)))
 	}
 
 	// Skip the unix time area.
@@ -148,8 +148,31 @@ func validDataUnit(unitCount, workerID int, obj *object.Object, data []byte) err
 	current = current + 4
 	if workerID != actualWorkerID {
 		return fmt.Errorf("WorkerID is wrong. (expected = \"%d\", actual = \"%d\")\n%s\n",
-			workerID, actualWorkerID, hex.Dump(data))
+			workerID, actualWorkerID, dump(hex.Dump(data)))
 	}
 
 	return nil
+}
+
+func dump(data string) string {
+	const lineSize = 79
+	output := ""
+	byteExplanation := []string{
+		"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ bucket name\n                                               ^^^^^^^^^^^\n",
+		"          ^^^^^^^^^^^^^^^^^^^^^^^ key name\n                                   ^^^^^^^^^^^ write count\n                                               ^^^^^^^^^^^ byte offset in this object\n",
+		"          ^^^^^^^^^^^^^^^^^^^^^^^ unix time (micro sec)\n                                   ^^^^^^^^^^^ worker ID\n",
+	}
+
+	for _, exp := range byteExplanation {
+		if len(data) < lineSize {
+			output += data
+			output += exp
+			return output
+		}
+		output += data[0:lineSize]
+		output += exp
+		data = data[lineSize:]
+	}
+	output += data
+	return output
 }
