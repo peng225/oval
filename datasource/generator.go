@@ -93,16 +93,9 @@ func generateDataUnit(unitCount, workerID int, obj *object.Object, writer io.Wri
 func Valid(workerID int, obj *object.Object, reader io.Reader) error {
 	data := make([]byte, dataUnitSize)
 	for i := 0; i < obj.Size/dataUnitSize; i++ {
-		readSum := 0
-		for readSum != len(data) {
-			n, err := reader.Read(data[readSum:])
-			if err != nil && err != io.EOF {
-				return err
-			}
-			readSum += n
-		}
-		if readSum != dataUnitSize {
-			return fmt.Errorf("Could not read some data. (expected: %vbyte, actual: %vbyte)\n%v", dataUnitSize, readSum, dump(hex.Dump(data[0:readSum])))
+		n, _ := io.ReadFull(reader, data)
+		if n != dataUnitSize {
+			return fmt.Errorf("Could not read some data. (expected: %vbyte, actual: %vbyte)\n%v", dataUnitSize, n, dump(hex.Dump(data[0:n])))
 		}
 		err := validDataUnit(i, workerID, obj, data)
 		if err != nil {
@@ -155,6 +148,9 @@ func validDataUnit(unitCount, workerID int, obj *object.Object, data []byte) err
 }
 
 func dump(data string) string {
+	if len(data) == 0 {
+		return ""
+	}
 	const lineSize = 79
 	output := ""
 	byteExplanation := []string{
