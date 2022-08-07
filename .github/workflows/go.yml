@@ -27,3 +27,9 @@ jobs:
 
     - name: Test
       run: make test
+
+    - name: Locally run oval with MinIO
+      env:
+        AWS_ACCESS_KEY_ID: "minioadmin"
+        AWS_SECRET_ACCESS_KEY: "minioadmin"
+      run: make local-run
