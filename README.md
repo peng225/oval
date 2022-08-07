@@ -65,7 +65,7 @@ Usage of ./oval:
   -num_worker int
         The number of workers. (default 1)
   -ope_ratio string
-        The ration of put, get and delete operations. Eg. "2,3,1" (default "1,1,1")
+        The ratio of put, get and delete operations. Eg. "2,3,1" (default "1,1,1")
   -size string
         The size of object. Should be in the form like "8k" or "4k-2m". The unit "g" or "G" is not allowed. (default "4k")
   -time int
