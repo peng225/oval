@@ -141,6 +141,12 @@ func (s *S3Client) HeadBucket(bucketName string) error {
 		Bucket: &bucketName,
 	})
 	if err != nil {
+		var nf *types.NotFound
+		if errors.As(err, &nf) {
+			err = &NotFound{
+				errorMessage: err.Error(),
+			}
+		}
 		return err
 	}
 	return nil
