@@ -37,10 +37,12 @@ func (r *Runner) Init(bucketName, endpoint string) {
 	if err != nil {
 		var nf *s3_client.NotFound
 		if errors.As(err, &nf) {
+			fmt.Println("Bucket \"" + bucketName + "\" not found. Creating...")
 			err = r.client.CreateBucket(bucketName)
 			if err != nil {
 				log.Fatal(err)
 			}
+			fmt.Println("Bucket created successfully.")
 		} else {
 			log.Fatal(err)
 		}
