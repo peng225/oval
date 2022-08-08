@@ -16,25 +16,25 @@ type Validator struct {
 	MinSize    int
 	MaxSize    int
 	BucketName string
+	ObjectMata object.ObjectMeta `json:"objectMeta"`
 	client     *s3_client.S3Client
-	objectList object.ObjectList
 	st         *stat.Stat
 }
 
 func (v *Validator) ShowInfo() {
-	head, tail := v.objectList.GetHeadAndTailKey()
+	head, tail := v.ObjectMata.GetHeadAndTailKey()
 	fmt.Printf("Worker ID = %#x, Key = [%s, %s]\n", v.ID, head, tail)
 }
 
 func (v *Validator) Put() {
-	obj := v.objectList.GetRandomObject()
+	obj := v.ObjectMata.GetRandomObject()
 
 	// Validation before write
 	getBeforeBody, err := v.client.GetObject(v.BucketName, obj.Key)
 	if err != nil {
 		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
-			if v.objectList.Exist(obj.Key) {
+			if v.ObjectMata.Exist(obj.Key) {
 				// expect: exists, actual: does not exist
 				log.Fatalf("An object has been lost. (key = %s)", obj.Key)
 			}
@@ -43,7 +43,7 @@ func (v *Validator) Put() {
 		}
 	} else {
 		defer getBeforeBody.Close()
-		if !v.objectList.Exist(obj.Key) {
+		if !v.ObjectMata.Exist(obj.Key) {
 			// expect: does not exist, actual: exists
 			log.Fatalf("An unexpected object was found. (key = %s)", obj.Key)
 		}
@@ -54,7 +54,7 @@ func (v *Validator) Put() {
 		v.st.AddGetForValidCount()
 	}
 
-	v.objectList.RegisterToExistingList(obj.Key)
+	v.ObjectMata.RegisterToExistingList(obj.Key)
 	obj.WriteCount++
 	body, size, err := datasource.Generate(v.MinSize, v.MaxSize, v.ID, obj)
 	obj.Size = size
@@ -70,7 +70,12 @@ func (v *Validator) Put() {
 	// Validation after write
 	getAfterBody, err := v.client.GetObject(v.BucketName, obj.Key)
 	if err != nil {
-		log.Fatal(err)
+		var nsk *s3_client.NoSuchKey
+		if errors.As(err, &nsk) {
+			log.Fatalf("Object lost after put.\nerr: %v\nobj: %v", err, obj)
+		} else {
+			log.Fatal(err)
+		}
 	}
 	defer getAfterBody.Close()
 	err = datasource.Valid(v.ID, obj, getAfterBody)
@@ -81,7 +86,7 @@ func (v *Validator) Put() {
 }
 
 func (v *Validator) Get() {
-	obj := v.objectList.GetExistingRandomObject()
+	obj := v.ObjectMata.GetExistingRandomObject()
 	if obj == nil {
 		return
 	}
@@ -89,7 +94,12 @@ func (v *Validator) Get() {
 	// Validation on get
 	body, err := v.client.GetObject(v.BucketName, obj.Key)
 	if err != nil {
-		log.Fatal(err)
+		var nsk *s3_client.NoSuchKey
+		if errors.As(err, &nsk) {
+			log.Fatalf("Object lost before get.\nerr: %v\nobj: %v", err, obj)
+		} else {
+			log.Fatal(err)
+		}
 	}
 	defer body.Close()
 	err = datasource.Valid(v.ID, obj, body)
@@ -100,7 +110,7 @@ func (v *Validator) Get() {
 }
 
 func (v *Validator) Delete() {
-	obj := v.objectList.PopExistingRandomObject()
+	obj := v.ObjectMata.PopExistingRandomObject()
 	if obj == nil {
 		return
 	}
@@ -108,7 +118,12 @@ func (v *Validator) Delete() {
 	// Validation before delete
 	getBeforeBody, err := v.client.GetObject(v.BucketName, obj.Key)
 	if err != nil {
-		log.Fatal(err)
+		var nsk *s3_client.NoSuchKey
+		if errors.As(err, &nsk) {
+			log.Fatalf("Object lost before delete.\nerr: %v\nobj: %v", err, obj)
+		} else {
+			log.Fatal(err)
+		}
 	}
 	defer getBeforeBody.Close()
 	err = datasource.Valid(v.ID, obj, getBeforeBody)

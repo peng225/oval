@@ -1,10 +1,13 @@
 package validator
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
+	"os"
 	"sync"
 	"time"
 
@@ -17,28 +20,78 @@ const (
 	maxValidatorID = 0x10000
 )
 
-type Runner struct {
-	NumObj        int
-	NumWorker     int
-	MinSize       int
-	MaxSize       int
-	TimeInMs      int64
-	OpeRatios     []float64
-	Profiler      bool
-	validatorList []Validator
-	client        *s3_client.S3Client
-	st            stat.Stat
+type ExecutionContext struct {
+	Endpoint         string      `json:"endpoint"`
+	BucketName       string      `json:"bucketName"`
+	NumObj           int         `json:"numObj"`
+	NumWorker        int         `json:"numWorker"`
+	MinSize          int         `json:"minSize"`
+	MaxSize          int         `json:"maxSize"`
+	StartValidatorID int         `json:"startValidatorID"`
+	Validators       []Validator `json:"validators"`
 }
 
-func (r *Runner) Init(bucketName, endpoint string) {
+type Runner struct {
+	execContext  *ExecutionContext
+	opeRatios    []float64
+	timeInMs     int64
+	profiler     bool
+	loadFileName string
+	client       *s3_client.S3Client
+	st           stat.Stat
+}
+
+func NewRunner(execContext *ExecutionContext, opeRatios []float64, timeInMs int64, profiler bool, loadFileName string) *Runner {
+	runner := &Runner{
+		execContext:  execContext,
+		opeRatios:    opeRatios,
+		timeInMs:     timeInMs,
+		profiler:     profiler,
+		loadFileName: loadFileName,
+	}
+	runner.init()
+	return runner
+}
+
+func NewRunnerFromLoadFile(loadFileName string, opeRatios []float64, timeInMs int64, profiler bool) *Runner {
+	if loadFileName == "" {
+		log.Fatal("loadFileName is empty.")
+	}
+	_, err := os.Stat(loadFileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ec := loadSavedContext(loadFileName)
+	return NewRunner(ec, opeRatios, timeInMs, profiler, loadFileName)
+}
+
+func loadSavedContext(loadFileName string) *ExecutionContext {
+	f, err := os.Open(loadFileName)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	savedContext, err := io.ReadAll(f)
+	if err != nil {
+		panic(err)
+	}
+	ec := &ExecutionContext{}
+	json.Unmarshal(savedContext, ec)
+	return ec
+}
+
+func (r *Runner) init() {
 	r.client = &s3_client.S3Client{}
-	r.client.Init(endpoint)
-	err := r.client.HeadBucket(bucketName)
+	r.client.Init(r.execContext.Endpoint)
+	err := r.client.HeadBucket(r.execContext.BucketName)
 	if err != nil {
 		var nf *s3_client.NotFound
 		if errors.As(err, &nf) {
-			fmt.Println("Bucket \"" + bucketName + "\" not found. Creating...")
-			err = r.client.CreateBucket(bucketName)
+			if r.loadFileName != "" {
+				log.Fatal("HeadBucket failed despite \"load\" parameter was set.")
+			}
+			fmt.Println("Bucket \"" + r.execContext.BucketName + "\" not found. Creating...")
+			err = r.client.CreateBucket(r.execContext.BucketName)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -47,47 +100,64 @@ func (r *Runner) Init(bucketName, endpoint string) {
 			log.Fatal(err)
 		}
 	} else {
-		err = r.client.ClearBucket(bucketName)
-		if err != nil {
-			log.Fatal(err)
+		if r.loadFileName == "" {
+			err = r.client.ClearBucket(r.execContext.BucketName)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 
-	r.validatorList = make([]Validator, r.NumWorker)
-	rand.Seed(time.Now().UnixNano())
-	startID := rand.Intn(maxValidatorID)
-	for i, _ := range r.validatorList {
-		r.validatorList[i].ID = (startID + i) % maxValidatorID
-		r.validatorList[i].MinSize = r.MinSize
-		r.validatorList[i].MaxSize = r.MaxSize
-		r.validatorList[i].BucketName = bucketName
-		r.validatorList[i].client = r.client
-		r.validatorList[i].objectList.Init(bucketName, r.NumObj/r.NumWorker, r.NumObj/r.NumWorker*i)
-		r.validatorList[i].st = &r.st
-		r.validatorList[i].ShowInfo()
+	if r.loadFileName == "" {
+		r.execContext.Validators = make([]Validator, r.execContext.NumWorker)
+		rand.Seed(time.Now().UnixNano())
+		startID := rand.Intn(maxValidatorID)
+		r.execContext.StartValidatorID = startID
+		for i, _ := range r.execContext.Validators {
+			r.execContext.Validators[i].ID = (startID + i) % maxValidatorID
+			r.execContext.Validators[i].MinSize = r.execContext.MinSize
+			r.execContext.Validators[i].MaxSize = r.execContext.MaxSize
+			r.execContext.Validators[i].BucketName = r.execContext.BucketName
+			r.execContext.Validators[i].client = r.client
+			r.execContext.Validators[i].ObjectMata.Init(r.execContext.BucketName,
+				r.execContext.NumObj/r.execContext.NumWorker,
+				r.execContext.NumObj/r.execContext.NumWorker*i)
+			r.execContext.Validators[i].st = &r.st
+			r.execContext.Validators[i].ShowInfo()
+		}
+	} else {
+		for i, _ := range r.execContext.Validators {
+			r.execContext.Validators[i].ID = (r.execContext.StartValidatorID + i) % maxValidatorID
+			r.execContext.Validators[i].MinSize = r.execContext.MinSize
+			r.execContext.Validators[i].MaxSize = r.execContext.MaxSize
+			r.execContext.Validators[i].BucketName = r.execContext.BucketName
+			r.execContext.Validators[i].client = r.client
+			r.execContext.Validators[i].st = &r.st
+			r.execContext.Validators[i].ShowInfo()
+		}
 	}
 }
 
 func (r *Runner) Run() {
 	fmt.Println("Validation start.")
-	if r.Profiler {
+	if r.profiler {
 		defer profile.Start(profile.ProfilePath(".")).Stop()
 	}
 	wg := &sync.WaitGroup{}
 	now := time.Now()
-	for i := 0; i < r.NumWorker; i++ {
+	for i := 0; i < r.execContext.NumWorker; i++ {
 		wg.Add(1)
 		go func(workerId int) {
 			defer wg.Done()
-			for time.Since(now).Milliseconds() < r.TimeInMs {
+			for time.Since(now).Milliseconds() < r.timeInMs {
 				operation := r.selectOperation()
 				switch operation {
 				case Put:
-					r.validatorList[workerId].Put()
+					r.execContext.Validators[workerId].Put()
 				case Get:
-					r.validatorList[workerId].Get()
+					r.execContext.Validators[workerId].Get()
 				case Delete:
-					r.validatorList[workerId].Delete()
+					r.execContext.Validators[workerId].Delete()
 				}
 			}
 		}(i)
@@ -109,11 +179,50 @@ const (
 func (r *Runner) selectOperation() Operation {
 	rand.Seed(time.Now().UnixNano())
 	randVal := rand.Float64()
-	if randVal < r.OpeRatios[0] {
+	if randVal < r.opeRatios[0] {
 		return Put
-	} else if randVal < r.OpeRatios[0]+r.OpeRatios[1] {
+	} else if randVal < r.opeRatios[0]+r.opeRatios[1] {
 		return Get
 	} else {
 		return Delete
 	}
+}
+
+func (r *Runner) SaveContext(saveFileName string) error {
+	// Check if a file with the name "saveFileName" exists.
+	_, err := os.Stat(saveFileName)
+	if err == nil {
+		fmt.Println(`A file "` + saveFileName + `" already exists. Are you sure to overwrite it? (y/N)`)
+		var userInput string
+		_, err = fmt.Scan(&userInput)
+		if err != nil {
+			return err
+		}
+		if userInput != "y" {
+			fmt.Println("Saving file canceled.")
+			return nil
+		}
+	}
+	f, err := os.Create(saveFileName)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	data, err := json.Marshal(r.execContext)
+	if err != nil {
+		return err
+	}
+	for {
+		n, err := f.Write(data)
+		if err != nil {
+			if n != len(data) {
+				data = data[:n]
+				continue
+			}
+			return err
+		}
+		break
+	}
+	return nil
 }
