@@ -10,14 +10,16 @@ import (
 
 func main() {
 	var (
-		numObj      int
-		numWorker   int
-		sizePattern string
-		time        int64
-		bucketName  string
-		opeRatioStr string
-		endpoint    string
-		profiler    bool
+		numObj       int
+		numWorker    int
+		sizePattern  string
+		time         int64
+		bucketName   string
+		opeRatioStr  string
+		endpoint     string
+		profiler     bool
+		saveFileName string
+		loadFileName string
 	)
 	flag.IntVar(&numObj, "num_obj", 10, "The maximum number of objects.")
 	flag.IntVar(&numWorker, "num_worker", 1, "The number of workers.")
@@ -27,6 +29,8 @@ func main() {
 	flag.StringVar(&opeRatioStr, "ope_ratio", "1,1,1", "The ration of put, get and delete operations. Eg. \"2,3,1\"")
 	flag.StringVar(&endpoint, "endpoint", "", "The endpoint URL and TCP port number. Eg. \"http://127.0.0.1:9000\"")
 	flag.BoolVar(&profiler, "profiler", false, "Enable profiler.")
+	flag.StringVar(&saveFileName, "save", "", "File name to save the execution context.")
+	flag.StringVar(&loadFileName, "load", "", "File name to load the execution context.")
 	flag.Parse()
 
 	log.SetFlags(log.Lshortfile)
@@ -40,16 +44,26 @@ func main() {
 		log.Fatal(err)
 	}
 
-	r := validator.Runner{
-		NumObj:    numObj,
-		NumWorker: numWorker,
-		MinSize:   minSize,
-		MaxSize:   maxSize,
-		TimeInMs:  time * 1000,
-		OpeRatios: opeRatios,
-		Profiler:  profiler,
+	var r *validator.Runner
+	timeInMs := time * 1000
+	if loadFileName == "" {
+		execContext := &validator.ExecutionContext{
+			Endpoint:   endpoint,
+			BucketName: bucketName,
+			NumObj:     numObj,
+			NumWorker:  numWorker,
+			MinSize:    minSize,
+			MaxSize:    maxSize,
+		}
+		r = validator.NewRunner(execContext, opeRatios, timeInMs, profiler, loadFileName)
+	} else {
+		r = validator.NewRunnerFromLoadFile(loadFileName, opeRatios, timeInMs, profiler)
 	}
-
-	r.Init(bucketName, endpoint)
 	r.Run()
+	if saveFileName != "" {
+		err := r.SaveContext(saveFileName)
+		if err != nil {
+			panic(err)
+		}
+	}
 }
