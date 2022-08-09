@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/peng225/oval/object"
 	"github.com/peng225/oval/s3_client"
 	"github.com/peng225/oval/stat"
 	"github.com/pkg/profile"
@@ -22,7 +23,7 @@ const (
 
 type ExecutionContext struct {
 	Endpoint         string      `json:"endpoint"`
-	BucketName       string      `json:"bucketName"`
+	BucketNames      []string    `json:"bucketNames"`
 	NumObj           int         `json:"numObj"`
 	NumWorker        int         `json:"numWorker"`
 	MinSize          int         `json:"minSize"`
@@ -83,27 +84,29 @@ func loadSavedContext(loadFileName string) *ExecutionContext {
 func (r *Runner) init() {
 	r.client = &s3_client.S3Client{}
 	r.client.Init(r.execContext.Endpoint)
-	err := r.client.HeadBucket(r.execContext.BucketName)
-	if err != nil {
-		var nf *s3_client.NotFound
-		if errors.As(err, &nf) {
-			if r.loadFileName != "" {
-				log.Fatal("HeadBucket failed despite \"load\" parameter was set.")
-			}
-			fmt.Println("Bucket \"" + r.execContext.BucketName + "\" not found. Creating...")
-			err = r.client.CreateBucket(r.execContext.BucketName)
-			if err != nil {
+	for _, bucketName := range r.execContext.BucketNames {
+		err := r.client.HeadBucket(bucketName)
+		if err != nil {
+			var nf *s3_client.NotFound
+			if errors.As(err, &nf) {
+				if r.loadFileName != "" {
+					log.Fatal("HeadBucket failed despite \"load\" parameter was set.")
+				}
+				fmt.Println("Bucket \"" + bucketName + "\" not found. Creating...")
+				err = r.client.CreateBucket(bucketName)
+				if err != nil {
+					log.Fatal(err)
+				}
+				fmt.Println("Bucket created successfully.")
+			} else {
 				log.Fatal(err)
 			}
-			fmt.Println("Bucket created successfully.")
 		} else {
-			log.Fatal(err)
-		}
-	} else {
-		if r.loadFileName == "" {
-			err = r.client.ClearBucket(r.execContext.BucketName)
-			if err != nil {
-				log.Fatal(err)
+			if r.loadFileName == "" {
+				err = r.client.ClearBucket(bucketName)
+				if err != nil {
+					log.Fatal(err)
+				}
 			}
 		}
 	}
@@ -117,11 +120,18 @@ func (r *Runner) init() {
 			r.execContext.Validators[i].ID = (startID + i) % maxValidatorID
 			r.execContext.Validators[i].MinSize = r.execContext.MinSize
 			r.execContext.Validators[i].MaxSize = r.execContext.MaxSize
-			r.execContext.Validators[i].BucketName = r.execContext.BucketName
+			r.execContext.Validators[i].BucketsWithObject = make([]*BucketWithObject, len(r.execContext.BucketNames))
+			for j, bucketName := range r.execContext.BucketNames {
+				r.execContext.Validators[i].BucketsWithObject[j] = &BucketWithObject{
+					BucketName: bucketName,
+					ObjectMata: object.ObjectMeta{},
+				}
+				r.execContext.Validators[i].BucketsWithObject[j].ObjectMata.Init(
+					r.execContext.NumObj/r.execContext.NumWorker,
+					r.execContext.NumObj/r.execContext.NumWorker*i,
+				)
+			}
 			r.execContext.Validators[i].client = r.client
-			r.execContext.Validators[i].ObjectMata.Init(r.execContext.BucketName,
-				r.execContext.NumObj/r.execContext.NumWorker,
-				r.execContext.NumObj/r.execContext.NumWorker*i)
 			r.execContext.Validators[i].st = &r.st
 			r.execContext.Validators[i].ShowInfo()
 		}
@@ -130,7 +140,6 @@ func (r *Runner) init() {
 			r.execContext.Validators[i].ID = (r.execContext.StartValidatorID + i) % maxValidatorID
 			r.execContext.Validators[i].MinSize = r.execContext.MinSize
 			r.execContext.Validators[i].MaxSize = r.execContext.MaxSize
-			r.execContext.Validators[i].BucketName = r.execContext.BucketName
 			r.execContext.Validators[i].client = r.client
 			r.execContext.Validators[i].st = &r.st
 			r.execContext.Validators[i].ShowInfo()

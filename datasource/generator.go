@@ -19,7 +19,7 @@ const (
 	dataUnitHeaderSizeWithoutBucketAndKey = 20
 )
 
-func Generate(minSize, maxSize, workerID int, obj *object.Object) (io.ReadSeeker, int, error) {
+func Generate(minSize, maxSize, workerID int, bucketName string, obj *object.Object) (io.ReadSeeker, int, error) {
 	if minSize%dataUnitSize != 0 {
 		return nil, 0, fmt.Errorf("minSize should be a multiple of %v.", dataUnitSize)
 	}
@@ -37,7 +37,7 @@ func Generate(minSize, maxSize, workerID int, obj *object.Object) (io.ReadSeeker
 	// memfile does not implement io.Closer interface.
 
 	for i := 0; i < dataSize/dataUnitSize; i++ {
-		err := generateDataUnit(i, workerID, obj, f)
+		err := generateDataUnit(i, workerID, bucketName, obj, f)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -55,10 +55,10 @@ func Generate(minSize, maxSize, workerID int, obj *object.Object) (io.ReadSeeker
 	return f, dataSize, nil
 }
 
-func generateDataUnit(unitCount, workerID int, obj *object.Object, writer io.Writer) error {
+func generateDataUnit(unitCount, workerID int, bucketName string, obj *object.Object, writer io.Writer) error {
 	bucketKeyformat := fmt.Sprintf("%%-%vs%%-%vs", object.MAX_BUCKET_NAME_LENGTH, object.MAX_KEY_LENGTH)
 	offsetInObject := unitCount * dataUnitSize
-	n, err := writer.Write([]byte(fmt.Sprintf(bucketKeyformat, obj.BucketName, obj.Key)))
+	n, err := writer.Write([]byte(fmt.Sprintf(bucketKeyformat, bucketName, obj.Key)))
 	if err != nil {
 		return err
 	}
@@ -90,14 +90,14 @@ func generateDataUnit(unitCount, workerID int, obj *object.Object, writer io.Wri
 	return nil
 }
 
-func Valid(workerID int, obj *object.Object, reader io.Reader) error {
+func Valid(workerID int, expectedBucketName string, obj *object.Object, reader io.Reader) error {
 	data := make([]byte, dataUnitSize)
 	for i := 0; i < obj.Size/dataUnitSize; i++ {
 		n, _ := io.ReadFull(reader, data)
 		if n != dataUnitSize {
 			return fmt.Errorf("Could not read some data. (expected: %vbyte, actual: %vbyte)\n%v", dataUnitSize, n, dump(hex.Dump(data[0:n])))
 		}
-		err := validDataUnit(i, workerID, obj, data)
+		err := validDataUnit(i, workerID, expectedBucketName, obj, data)
 		if err != nil {
 			return err
 		}
@@ -105,12 +105,12 @@ func Valid(workerID int, obj *object.Object, reader io.Reader) error {
 	return nil
 }
 
-func validDataUnit(unitCount, workerID int, obj *object.Object, data []byte) error {
+func validDataUnit(unitCount, workerID int, expectedBucketName string, obj *object.Object, data []byte) error {
 	bucketName := data[0:object.MAX_BUCKET_NAME_LENGTH]
 	current := object.MAX_BUCKET_NAME_LENGTH
-	if obj.BucketName != strings.TrimSpace(string(bucketName)) {
+	if expectedBucketName != strings.TrimSpace(string(bucketName)) {
 		return fmt.Errorf("Bucket name is wrong. (expected = \"%s\", actual = \"%s\")\n%s\n",
-			obj.BucketName, strings.TrimSpace(string(bucketName)), dump(hex.Dump(data)))
+			expectedBucketName, strings.TrimSpace(string(bucketName)), dump(hex.Dump(data)))
 	}
 
 	key := data[current : current+object.MAX_KEY_LENGTH]
