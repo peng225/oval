@@ -117,9 +117,9 @@ func (r *Runner) init() {
 		startID := rand.Intn(maxValidatorID)
 		r.execContext.StartValidatorID = startID
 		for i, _ := range r.execContext.Validators {
-			r.execContext.Validators[i].ID = (startID + i) % maxValidatorID
-			r.execContext.Validators[i].MinSize = r.execContext.MinSize
-			r.execContext.Validators[i].MaxSize = r.execContext.MaxSize
+			r.execContext.Validators[i].id = (startID + i) % maxValidatorID
+			r.execContext.Validators[i].minSize = r.execContext.MinSize
+			r.execContext.Validators[i].maxSize = r.execContext.MaxSize
 			r.execContext.Validators[i].BucketsWithObject = make([]*BucketWithObject, len(r.execContext.BucketNames))
 			for j, bucketName := range r.execContext.BucketNames {
 				r.execContext.Validators[i].BucketsWithObject[j] = &BucketWithObject{
@@ -137,9 +137,9 @@ func (r *Runner) init() {
 		}
 	} else {
 		for i, _ := range r.execContext.Validators {
-			r.execContext.Validators[i].ID = (r.execContext.StartValidatorID + i) % maxValidatorID
-			r.execContext.Validators[i].MinSize = r.execContext.MinSize
-			r.execContext.Validators[i].MaxSize = r.execContext.MaxSize
+			r.execContext.Validators[i].id = (r.execContext.StartValidatorID + i) % maxValidatorID
+			r.execContext.Validators[i].minSize = r.execContext.MinSize
+			r.execContext.Validators[i].maxSize = r.execContext.MaxSize
 			r.execContext.Validators[i].client = r.client
 			r.execContext.Validators[i].st = &r.st
 			r.execContext.Validators[i].ShowInfo()
