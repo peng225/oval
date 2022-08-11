@@ -53,19 +53,25 @@ and you can investigate the root cause of the data corruption using the dump dat
 ## How to use
 
 ```
-$ go build -o oval
-$ ./oval -h                                                                  
+$ make
+$ ./oval -h
 Usage of ./oval:
   -bucket string
-        The name of the bucket.
+        The name list of the buckets. e.g. "bucket1,bucket2"
   -endpoint string
-        The endpoint URL and TCP port number. Eg. "http://127.0.0.1:9000"
+        The endpoint URL and TCP port number. e.g. "http://127.0.0.1:9000"
+  -load string
+        File name to load the execution context.
   -num_obj int
         The maximum number of objects. (default 10)
   -num_worker int
         The number of workers. (default 1)
   -ope_ratio string
-        The ratio of put, get and delete operations. Eg. "2,3,1" (default "1,1,1")
+        The ration of put, get and delete operations. e.g. "2,3,1" (default "1,1,1")
+  -profiler
+        Enable profiler.
+  -save string
+        File name to save the execution context.
   -size string
         The size of object. Should be in the form like "8k" or "4k-2m". The unit "g" or "G" is not allowed. (default "4k")
   -time int
