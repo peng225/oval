@@ -14,15 +14,15 @@ const (
 )
 
 type Object struct {
-	Key        string
-	Size       int
-	WriteCount int
+	Key        string `json:"key"`
+	Size       int    `json:"size"`
+	WriteCount int    `json:"writeCount"`
 }
 
 type ObjectMeta struct {
-	ObjectList        []Object
-	ExistingObjectIDs []int
-	KeyIDOffset       int
+	ObjectList        []Object `json:"objectList"`
+	ExistingObjectIDs []int    `json:"existingObjectIDs"`
+	KeyIDOffset       int      `json:"keyIDOffset"`
 }
 
 func (obj *Object) Clear() {

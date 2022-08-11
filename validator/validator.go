@@ -13,24 +13,24 @@ import (
 )
 
 type Validator struct {
-	ID                int
-	MinSize           int
-	MaxSize           int
+	id                int
+	minSize           int
+	maxSize           int
 	BucketsWithObject []*BucketWithObject `json:"bucketsWithObject"`
 	client            *s3_client.S3Client
 	st                *stat.Stat
 }
 
 type BucketWithObject struct {
-	BucketName string
-	ObjectMata object.ObjectMeta
+	BucketName string            `json:"bucketName"`
+	ObjectMata object.ObjectMeta `json:"objectMata"`
 }
 
 func (v *Validator) ShowInfo() {
 	// Only show the key range of the first bucket
 	// because key range is the same for all buckets.
 	head, tail := v.BucketsWithObject[0].ObjectMata.GetHeadAndTailKey()
-	fmt.Printf("Worker ID = %#x, Key = [%s, %s]\n", v.ID, head, tail)
+	fmt.Printf("Worker ID = %#x, Key = [%s, %s]\n", v.id, head, tail)
 }
 
 func (v *Validator) Put() {
@@ -55,7 +55,7 @@ func (v *Validator) Put() {
 			// expect: does not exist, actual: exists
 			log.Fatalf("An unexpected object was found. (key = %s)", obj.Key)
 		}
-		err := datasource.Valid(v.ID, bucketWithObj.BucketName, obj, getBeforeBody)
+		err := datasource.Valid(v.id, bucketWithObj.BucketName, obj, getBeforeBody)
 		if err != nil {
 			log.Fatalf("Data validation error occurred before put.\n%v", err)
 		}
@@ -64,7 +64,7 @@ func (v *Validator) Put() {
 
 	bucketWithObj.ObjectMata.RegisterToExistingList(obj.Key)
 	obj.WriteCount++
-	body, size, err := datasource.Generate(v.MinSize, v.MaxSize, v.ID, bucketWithObj.BucketName, obj)
+	body, size, err := datasource.Generate(v.minSize, v.maxSize, v.id, bucketWithObj.BucketName, obj)
 	obj.Size = size
 	if err != nil {
 		log.Fatal(err)
@@ -86,7 +86,7 @@ func (v *Validator) Put() {
 		}
 	}
 	defer getAfterBody.Close()
-	err = datasource.Valid(v.ID, bucketWithObj.BucketName, obj, getAfterBody)
+	err = datasource.Valid(v.id, bucketWithObj.BucketName, obj, getAfterBody)
 	if err != nil {
 		log.Fatalf("Data validation error occurred after put.\n%v", err)
 	}
@@ -111,7 +111,7 @@ func (v *Validator) Get() {
 		}
 	}
 	defer body.Close()
-	err = datasource.Valid(v.ID, bucketWithObj.BucketName, obj, body)
+	err = datasource.Valid(v.id, bucketWithObj.BucketName, obj, body)
 	if err != nil {
 		log.Fatalf("Data validation error occurred at get operation.\n%v", err)
 	}
@@ -136,7 +136,7 @@ func (v *Validator) Delete() {
 		}
 	}
 	defer getBeforeBody.Close()
-	err = datasource.Valid(v.ID, bucketWithObj.BucketName, obj, getBeforeBody)
+	err = datasource.Valid(v.id, bucketWithObj.BucketName, obj, getBeforeBody)
 	if err != nil {
 		log.Fatalf("Data validation error occurred before delete.\n%v", err)
 	}

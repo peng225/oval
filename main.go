@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"strings"
 
@@ -45,6 +46,11 @@ func main() {
 		log.Fatal(err)
 	}
 	bucketNames := strings.Split(bucketNamesStr, ",")
+
+	if numObj%numWorker != 0 {
+		fmt.Printf("warning: The number of objects (%d) is not divisible by the number of workers (%d). Only %d objects will be used.\n",
+			numObj, numWorker, numObj/numWorker*numWorker)
+	}
 
 	var r *validator.Runner
 	timeInMs := time * 1000
