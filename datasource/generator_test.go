@@ -34,11 +34,10 @@ func (suite *GeneratorSuite) TestGenerateDataUnitSuccess() {
 		Key:        testKeyName,
 		Size:       256,
 		WriteCount: 300,
-		BucketName: testBucketName,
 	}
 	workerID := 100
 
-	suite.Equal(nil, generateDataUnit(4, workerID, obj, suite.f))
+	suite.Equal(nil, generateDataUnit(4, workerID, testBucketName, obj, suite.f))
 	suite.f.Seek(0, 0)
 	data, err := io.ReadAll(suite.f)
 	suite.NoError(err)
@@ -66,11 +65,10 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 		Key:        testKeyName,
 		Size:       256,
 		WriteCount: 300,
-		BucketName: testBucketName,
 	}
 	workerID := 100
 
-	readSeeker, size, err := Generate(512, 512, workerID, obj)
+	readSeeker, size, err := Generate(512, 512, workerID, testBucketName, obj)
 	suite.NoError(err)
 	suite.Equal(512, size)
 	data, err := io.ReadAll(readSeeker)
@@ -117,32 +115,30 @@ func (suite *GeneratorSuite) TestValidDataUnitSuccess() {
 		Key:        testKeyName,
 		Size:       256,
 		WriteCount: 300,
-		BucketName: testBucketName,
 	}
 	workerID := 100
 
-	err := generateDataUnit(4, workerID, obj, suite.f)
+	err := generateDataUnit(4, workerID, testBucketName, obj, suite.f)
 	suite.NoError(err)
 	_, err = suite.f.Seek(0, 0)
 	suite.NoError(err)
 	data, err := io.ReadAll(suite.f)
 	suite.NoError(err)
-	suite.Equal(nil, validDataUnit(4, workerID, obj, data))
+	suite.Equal(nil, validDataUnit(4, workerID, testBucketName, obj, data))
 }
 
 func (suite *GeneratorSuite) TestValidSuccess() {
 	obj := &object.Object{
 		Key:        testKeyName,
 		WriteCount: 300,
-		BucketName: testBucketName,
 	}
 	workerID := 100
 
-	readSeeker, size, err := Generate(1024, 1024, workerID, obj)
+	readSeeker, size, err := Generate(1024, 1024, workerID, testBucketName, obj)
 	suite.NoError(err)
 	obj.Size = size
 
-	err = Valid(workerID, obj, readSeeker)
+	err = Valid(workerID, testBucketName, obj, readSeeker)
 	suite.NoError(err)
 }
 

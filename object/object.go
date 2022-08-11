@@ -17,7 +17,6 @@ type Object struct {
 	Key        string
 	Size       int
 	WriteCount int
-	BucketName string
 }
 
 type ObjectMeta struct {
@@ -31,12 +30,11 @@ func (obj *Object) Clear() {
 	obj.WriteCount = 0
 }
 
-func NewObject(bucketName string, id int) *Object {
+func NewObject(id int) *Object {
 	return &Object{
 		Key:        generateKey(id),
 		Size:       0,
 		WriteCount: 0,
-		BucketName: bucketName,
 	}
 }
 
@@ -45,10 +43,10 @@ func generateKey(id int) string {
 	return fmt.Sprintf("ov%010d", currentId)
 }
 
-func (ol *ObjectMeta) Init(bucketName string, numObj, keyIDOffset int) {
+func (ol *ObjectMeta) Init(numObj, keyIDOffset int) {
 	ol.ObjectList = make([]Object, numObj)
 	for objId := 0; objId < numObj; objId++ {
-		ol.ObjectList[objId] = *NewObject(bucketName, keyIDOffset+objId)
+		ol.ObjectList[objId] = *NewObject(keyIDOffset + objId)
 	}
 	ol.ExistingObjectIDs = make([]int, 0, int(math.Sqrt(float64(numObj))))
 	ol.KeyIDOffset = keyIDOffset
