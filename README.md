@@ -101,21 +101,21 @@ delete count: 465
 
 ```
 $ ./oval -size 4k-16k --time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
-Worker ID = 0xf638, Key = [ov0000000000, ov0000000249]
-Worker ID = 0xf639, Key = [ov0000000250, ov0000000499]
-Worker ID = 0xf63a, Key = [ov0000000500, ov0000000749]
-Worker ID = 0xf63b, Key = [ov0000000750, ov0000000999]
+Worker ID = 0x790a, Key = [ov0000000000, ov0000000249]
+Worker ID = 0x790b, Key = [ov0000000250, ov0000000499]
+Worker ID = 0x790c, Key = [ov0000000500, ov0000000749]
+Worker ID = 0x790d, Key = [ov0000000750, ov0000000999]
 Validation start.
 worker.go:91: Data validation error occurred after put.
-WriteCount is wrong. (expected = "1", actual = "0")
+WriteCount is wrong. (expected = "2", actual = "1")
 00000000  74 65 73 74 2d 62 75 63  6b 65 74 20 6f 76 30 30  |test-bucket ov00|
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ bucket name
                                                ^^^^^^^^^^^
-00000010  30 30 30 30 30 36 36 32  01 00 00 00 00 00 00 00  |00000662........|
+00000010  30 30 30 30 30 33 35 33  01 00 00 00 00 00 00 00  |00000353........|
           ^^^^^^^^^^^^^^^^^^^^^^^ key name
                                    ^^^^^^^^^^^ write count
                                                ^^^^^^^^^^^ byte offset in this object
-00000020  1f 58 4b 21 c6 eb 05 00  3a f6 00 00 2c 2d 2e 2f  |.XK!....:...,-./|
+00000020  3c 62 f8 50 c6 eb 05 00  0b 79 00 00 2c 2d 2e 2f  |<b.P.....y..,-./|
           ^^^^^^^^^^^^^^^^^^^^^^^ unix time (micro sec)
                                    ^^^^^^^^^^^ worker ID
 00000030  30 31 32 33 34 35 36 37  38 39 3a 3b 3c 3d 3e 3f  |0123456789:;<=>?|
