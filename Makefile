@@ -25,4 +25,4 @@ local-run: $(BUILD_TARGET)
 
 .PHONY: clean
 clean:
-	rm -f $(BUILD_TARGET)
+	rm -f $(BUILD_TARGET) test.json
