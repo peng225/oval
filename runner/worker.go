@@ -1,4 +1,4 @@
-package validator
+package runner
 
 import (
 	"errors"
@@ -6,13 +6,13 @@ import (
 	"log"
 	"math/rand"
 
-	"github.com/peng225/oval/datasource"
 	"github.com/peng225/oval/object"
+	"github.com/peng225/oval/pattern"
 	"github.com/peng225/oval/s3_client"
 	"github.com/peng225/oval/stat"
 )
 
-type Validator struct {
+type Worker struct {
 	id                int
 	minSize           int
 	maxSize           int
@@ -26,14 +26,14 @@ type BucketWithObject struct {
 	ObjectMata object.ObjectMeta `json:"objectMata"`
 }
 
-func (v *Validator) ShowInfo() {
+func (v *Worker) ShowInfo() {
 	// Only show the key range of the first bucket
 	// because key range is the same for all buckets.
 	head, tail := v.BucketsWithObject[0].ObjectMata.GetHeadAndTailKey()
 	fmt.Printf("Worker ID = %#x, Key = [%s, %s]\n", v.id, head, tail)
 }
 
-func (v *Validator) Put() {
+func (v *Worker) Put() {
 	bucketWithObj := v.selectBucketWithObject()
 	obj := bucketWithObj.ObjectMata.GetRandomObject()
 
@@ -55,7 +55,7 @@ func (v *Validator) Put() {
 			// expect: does not exist, actual: exists
 			log.Fatalf("An unexpected object was found. (key = %s)", obj.Key)
 		}
-		err := datasource.Valid(v.id, bucketWithObj.BucketName, obj, getBeforeBody)
+		err := pattern.Valid(v.id, bucketWithObj.BucketName, obj, getBeforeBody)
 		if err != nil {
 			log.Fatalf("Data validation error occurred before put.\n%v", err)
 		}
@@ -64,7 +64,7 @@ func (v *Validator) Put() {
 
 	bucketWithObj.ObjectMata.RegisterToExistingList(obj.Key)
 	obj.WriteCount++
-	body, size, err := datasource.Generate(v.minSize, v.maxSize, v.id, bucketWithObj.BucketName, obj)
+	body, size, err := pattern.Generate(v.minSize, v.maxSize, v.id, bucketWithObj.BucketName, obj)
 	obj.Size = size
 	if err != nil {
 		log.Fatal(err)
@@ -86,14 +86,14 @@ func (v *Validator) Put() {
 		}
 	}
 	defer getAfterBody.Close()
-	err = datasource.Valid(v.id, bucketWithObj.BucketName, obj, getAfterBody)
+	err = pattern.Valid(v.id, bucketWithObj.BucketName, obj, getAfterBody)
 	if err != nil {
 		log.Fatalf("Data validation error occurred after put.\n%v", err)
 	}
 	v.st.AddGetForValidCount()
 }
 
-func (v *Validator) Get() {
+func (v *Worker) Get() {
 	bucketWithObj := v.selectBucketWithObject()
 	obj := bucketWithObj.ObjectMata.GetExistingRandomObject()
 	if obj == nil {
@@ -111,14 +111,14 @@ func (v *Validator) Get() {
 		}
 	}
 	defer body.Close()
-	err = datasource.Valid(v.id, bucketWithObj.BucketName, obj, body)
+	err = pattern.Valid(v.id, bucketWithObj.BucketName, obj, body)
 	if err != nil {
 		log.Fatalf("Data validation error occurred at get operation.\n%v", err)
 	}
 	v.st.AddGetCount()
 }
 
-func (v *Validator) Delete() {
+func (v *Worker) Delete() {
 	bucketWithObj := v.selectBucketWithObject()
 	obj := bucketWithObj.ObjectMata.PopExistingRandomObject()
 	if obj == nil {
@@ -136,7 +136,7 @@ func (v *Validator) Delete() {
 		}
 	}
 	defer getBeforeBody.Close()
-	err = datasource.Valid(v.id, bucketWithObj.BucketName, obj, getBeforeBody)
+	err = pattern.Valid(v.id, bucketWithObj.BucketName, obj, getBeforeBody)
 	if err != nil {
 		log.Fatalf("Data validation error occurred before delete.\n%v", err)
 	}
@@ -162,6 +162,6 @@ func (v *Validator) Delete() {
 	obj.Clear()
 }
 
-func (v *Validator) selectBucketWithObject() *BucketWithObject {
+func (v *Worker) selectBucketWithObject() *BucketWithObject {
 	return v.BucketsWithObject[rand.Intn(len(v.BucketsWithObject))]
 }
