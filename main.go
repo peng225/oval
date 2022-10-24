@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/peng225/oval/argparser"
-	"github.com/peng225/oval/validator"
+	"github.com/peng225/oval/runner"
 )
 
 func main() {
@@ -52,10 +52,10 @@ func main() {
 			numObj, numWorker, numObj/numWorker*numWorker)
 	}
 
-	var r *validator.Runner
+	var r *runner.Runner
 	timeInMs := time * 1000
 	if loadFileName == "" {
-		execContext := &validator.ExecutionContext{
+		execContext := &runner.ExecutionContext{
 			Endpoint:    endpoint,
 			BucketNames: bucketNames,
 			NumObj:      numObj,
@@ -63,9 +63,9 @@ func main() {
 			MinSize:     minSize,
 			MaxSize:     maxSize,
 		}
-		r = validator.NewRunner(execContext, opeRatios, timeInMs, profiler, loadFileName)
+		r = runner.NewRunner(execContext, opeRatios, timeInMs, profiler, loadFileName)
 	} else {
-		r = validator.NewRunnerFromLoadFile(loadFileName, opeRatios, timeInMs, profiler)
+		r = runner.NewRunnerFromLoadFile(loadFileName, opeRatios, timeInMs, profiler)
 	}
 	r.Run()
 	if saveFileName != "" {

@@ -1,4 +1,4 @@
-package validator
+package runner
 
 import (
 	"encoding/json"
@@ -18,18 +18,18 @@ import (
 )
 
 const (
-	maxValidatorID = 0x10000
+	maxWorkerID = 0x10000
 )
 
 type ExecutionContext struct {
-	Endpoint         string      `json:"endpoint"`
-	BucketNames      []string    `json:"bucketNames"`
-	NumObj           int         `json:"numObj"`
-	NumWorker        int         `json:"numWorker"`
-	MinSize          int         `json:"minSize"`
-	MaxSize          int         `json:"maxSize"`
-	StartValidatorID int         `json:"startValidatorID"`
-	Validators       []Validator `json:"validators"`
+	Endpoint      string   `json:"endpoint"`
+	BucketNames   []string `json:"bucketNames"`
+	NumObj        int      `json:"numObj"`
+	NumWorker     int      `json:"numWorker"`
+	MinSize       int      `json:"minSize"`
+	MaxSize       int      `json:"maxSize"`
+	StartWorkerID int      `json:"startWorkerID"`
+	Workers       []Worker `json:"workers"`
 }
 
 type Runner struct {
@@ -112,37 +112,37 @@ func (r *Runner) init() {
 	}
 
 	if r.loadFileName == "" {
-		r.execContext.Validators = make([]Validator, r.execContext.NumWorker)
+		r.execContext.Workers = make([]Worker, r.execContext.NumWorker)
 		rand.Seed(time.Now().UnixNano())
-		startID := rand.Intn(maxValidatorID)
-		r.execContext.StartValidatorID = startID
-		for i, _ := range r.execContext.Validators {
-			r.execContext.Validators[i].id = (startID + i) % maxValidatorID
-			r.execContext.Validators[i].minSize = r.execContext.MinSize
-			r.execContext.Validators[i].maxSize = r.execContext.MaxSize
-			r.execContext.Validators[i].BucketsWithObject = make([]*BucketWithObject, len(r.execContext.BucketNames))
+		startID := rand.Intn(maxWorkerID)
+		r.execContext.StartWorkerID = startID
+		for i, _ := range r.execContext.Workers {
+			r.execContext.Workers[i].id = (startID + i) % maxWorkerID
+			r.execContext.Workers[i].minSize = r.execContext.MinSize
+			r.execContext.Workers[i].maxSize = r.execContext.MaxSize
+			r.execContext.Workers[i].BucketsWithObject = make([]*BucketWithObject, len(r.execContext.BucketNames))
 			for j, bucketName := range r.execContext.BucketNames {
-				r.execContext.Validators[i].BucketsWithObject[j] = &BucketWithObject{
+				r.execContext.Workers[i].BucketsWithObject[j] = &BucketWithObject{
 					BucketName: bucketName,
 					ObjectMata: object.ObjectMeta{},
 				}
-				r.execContext.Validators[i].BucketsWithObject[j].ObjectMata.Init(
+				r.execContext.Workers[i].BucketsWithObject[j].ObjectMata.Init(
 					r.execContext.NumObj/r.execContext.NumWorker,
 					r.execContext.NumObj/r.execContext.NumWorker*i,
 				)
 			}
-			r.execContext.Validators[i].client = r.client
-			r.execContext.Validators[i].st = &r.st
-			r.execContext.Validators[i].ShowInfo()
+			r.execContext.Workers[i].client = r.client
+			r.execContext.Workers[i].st = &r.st
+			r.execContext.Workers[i].ShowInfo()
 		}
 	} else {
-		for i, _ := range r.execContext.Validators {
-			r.execContext.Validators[i].id = (r.execContext.StartValidatorID + i) % maxValidatorID
-			r.execContext.Validators[i].minSize = r.execContext.MinSize
-			r.execContext.Validators[i].maxSize = r.execContext.MaxSize
-			r.execContext.Validators[i].client = r.client
-			r.execContext.Validators[i].st = &r.st
-			r.execContext.Validators[i].ShowInfo()
+		for i, _ := range r.execContext.Workers {
+			r.execContext.Workers[i].id = (r.execContext.StartWorkerID + i) % maxWorkerID
+			r.execContext.Workers[i].minSize = r.execContext.MinSize
+			r.execContext.Workers[i].maxSize = r.execContext.MaxSize
+			r.execContext.Workers[i].client = r.client
+			r.execContext.Workers[i].st = &r.st
+			r.execContext.Workers[i].ShowInfo()
 		}
 	}
 }
@@ -162,11 +162,11 @@ func (r *Runner) Run() {
 				operation := r.selectOperation()
 				switch operation {
 				case Put:
-					r.execContext.Validators[workerId].Put()
+					r.execContext.Workers[workerId].Put()
 				case Get:
-					r.execContext.Validators[workerId].Get()
+					r.execContext.Workers[workerId].Get()
 				case Delete:
-					r.execContext.Validators[workerId].Delete()
+					r.execContext.Workers[workerId].Delete()
 				}
 			}
 		}(i)
