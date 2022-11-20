@@ -29,6 +29,9 @@ func Generate(minSize, maxSize, workerID int, bucketName string, obj *object.Obj
 	if maxSize < minSize {
 		return nil, 0, errors.New("maxSize should be larger than minSize.")
 	}
+	if len(bucketName) > object.MAX_BUCKET_NAME_LENGTH {
+		bucketName = bucketName[:object.MAX_BUCKET_NAME_LENGTH]
+	}
 
 	var dataSize int
 	dataSize = minSize + dataUnitSize*rand.Intn((maxSize-minSize)/dataUnitSize+1)
@@ -63,7 +66,7 @@ func generateDataUnit(unitCount, workerID int, bucketName string, obj *object.Ob
 		return err
 	}
 	if n != object.MAX_BUCKET_NAME_LENGTH+object.MAX_KEY_LENGTH {
-		return errors.New("bucket name and key was not written correctly.")
+		return fmt.Errorf("bucket name and key was not written correctly. n = %d", n)
 	}
 
 	numBinBuf := make([]byte, dataUnitHeaderSizeWithoutBucketAndKey)
@@ -91,6 +94,9 @@ func generateDataUnit(unitCount, workerID int, bucketName string, obj *object.Ob
 }
 
 func Valid(workerID int, expectedBucketName string, obj *object.Object, reader io.Reader) error {
+	if len(expectedBucketName) > object.MAX_BUCKET_NAME_LENGTH {
+		expectedBucketName = expectedBucketName[:object.MAX_BUCKET_NAME_LENGTH]
+	}
 	data := make([]byte, dataUnitSize)
 	for i := 0; i < obj.Size/dataUnitSize; i++ {
 		n, _ := io.ReadFull(reader, data)
