@@ -44,7 +44,8 @@ func (suite *GeneratorSuite) TestGenerateDataUnitSuccess() {
 	suite.Equal(dataUnitSize, len(data))
 
 	// bucketName
-	suite.Equal(append([]byte(testBucketName), 0x20), data[0:object.MAX_BUCKET_NAME_LENGTH])
+	suite.Equal(append([]byte(testBucketName), 0x20, 0x20, 0x20, 0x20, 0x20),
+		data[0:object.MAX_BUCKET_NAME_LENGTH])
 	current := object.MAX_BUCKET_NAME_LENGTH
 	// keyName
 	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
@@ -55,8 +56,7 @@ func (suite *GeneratorSuite) TestGenerateDataUnitSuccess() {
 	// Check offset
 	suite.Equal([]byte{0x00, 0x04, 0x00, 0x00}, data[current:current+4]) // hex(256*4) = 0x400
 	current += 4
-	current += 8 // Skip unix time area
-	// Check offset
+	// Check worker ID
 	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
 }
 
@@ -76,7 +76,8 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 
 	// 1st data unit
 	// bucketName
-	suite.Equal(append([]byte(testBucketName), 0x20), data[0:object.MAX_BUCKET_NAME_LENGTH])
+	suite.Equal(append([]byte(testBucketName), 0x20, 0x20, 0x20, 0x20, 0x20),
+		data[0:object.MAX_BUCKET_NAME_LENGTH])
 	current := object.MAX_BUCKET_NAME_LENGTH
 	// keyName
 	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
@@ -87,14 +88,14 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 	// Check offset
 	suite.Equal([]byte{0x00, 0x00, 0x00, 0x00}, data[current:current+4])
 	current += 4
-	current += 8 // Skip unix time area
-	// Check offset
+	// Check worker ID
 	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
 
 	// 2nd data unit
 	current = dataUnitSize
 	// bucketName
-	suite.Equal(append([]byte(testBucketName), 0x20), data[current:current+object.MAX_BUCKET_NAME_LENGTH])
+	suite.Equal(append([]byte(testBucketName), 0x20, 0x20, 0x20, 0x20, 0x20),
+		data[current:current+object.MAX_BUCKET_NAME_LENGTH])
 	current += object.MAX_BUCKET_NAME_LENGTH
 	// keyName
 	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
@@ -105,8 +106,7 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 	// Check offset
 	suite.Equal([]byte{0x00, 0x01, 0x00, 0x00}, data[current:current+4]) // hex(256*1) = 0x100
 	current += 4
-	current += 8 // Skip unix time area
-	// Check offset
+	// Check worker ID
 	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
 }
 

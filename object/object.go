@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	MAX_BUCKET_NAME_LENGTH = 12
+	MAX_BUCKET_NAME_LENGTH = 16
 	MAX_KEY_LENGTH         = 12
 )
 

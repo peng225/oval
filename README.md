@@ -84,40 +84,39 @@ Usage of ./oval:
 
 ```
 $ ./oval -size 4k-16k --time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
-Worker ID = 0xb67f, Key = [ov0000000000, ov0000000249]
-Worker ID = 0xb680, Key = [ov0000000250, ov0000000499]
-Worker ID = 0xb681, Key = [ov0000000500, ov0000000749]
-Worker ID = 0xb682, Key = [ov0000000750, ov0000000999]
+Worker ID = 0xface, Key = [ov0000000000, ov0000000249]
+Worker ID = 0xfacf, Key = [ov0000000250, ov0000000499]
+Worker ID = 0xfad0, Key = [ov0000000500, ov0000000749]
+Worker ID = 0xfad1, Key = [ov0000000750, ov0000000999]
 Validation start.
 Validation finished.
 Statistics report.
-put count: 515
-get count: 499
-get (for validation) count: 992
-delete count: 465
+put count: 726
+get count: 635
+get (for validation) count: 1395
+delete count: 648
 ```
 
 #### Data corruption case
 
 ```
 $ ./oval -size 4k-16k --time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
-Worker ID = 0x790a, Key = [ov0000000000, ov0000000249]
-Worker ID = 0x790b, Key = [ov0000000250, ov0000000499]
-Worker ID = 0x790c, Key = [ov0000000500, ov0000000749]
-Worker ID = 0x790d, Key = [ov0000000750, ov0000000999]
+Worker ID = 0xe628, Key = [ov0000000000, ov0000000249]
+Worker ID = 0xe629, Key = [ov0000000250, ov0000000499]
+Worker ID = 0xe62a, Key = [ov0000000500, ov0000000749]
+Worker ID = 0xe62b, Key = [ov0000000750, ov0000000999]
 Validation start.
 worker.go:91: Data validation error occurred after put.
 WriteCount is wrong. (expected = "2", actual = "1")
-00000000  74 65 73 74 2d 62 75 63  6b 65 74 20 6f 76 30 30  |test-bucket ov00|
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ bucket name
-                                               ^^^^^^^^^^^
-00000010  30 30 30 30 30 33 35 33  01 00 00 00 00 00 00 00  |00000353........|
-          ^^^^^^^^^^^^^^^^^^^^^^^ key name
-                                   ^^^^^^^^^^^ write count
-                                               ^^^^^^^^^^^ byte offset in this object
-00000020  3c 62 f8 50 c6 eb 05 00  0b 79 00 00 2c 2d 2e 2f  |<b.P.....y..,-./|
-          ^^^^^^^^^^^^^^^^^^^^^^^ unix time (micro sec)
-                                   ^^^^^^^^^^^ worker ID
+00000000  74 65 73 74 2d 62 75 63  6b 65 74 20 20 20 20 20  |test-bucket     |
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ bucket name
+00000010  6f 76 30 30 30 30 30 30  30 36 36 37 01 00 00 00  |ov0000000667....|
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ key name
+                                               ^^^^^^^^^^^ write count
+00000020  00 00 00 00 2a e6 00 00  f5 c6 f1 69 e5 ed 05 00  |....*......i....|
+          ^^^^^^^^^^^ byte offset in this object
+                      ^^^^^^^^^^^ worker ID
+                                   ^^^^^^^^^^^^^^^^^^^^^^^ unix time (micro sec)
 00000030  30 31 32 33 34 35 36 37  38 39 3a 3b 3c 3d 3e 3f  |0123456789:;<=>?|
 00000040  40 41 42 43 44 45 46 47  48 49 4a 4b 4c 4d 4e 4f  |@ABCDEFGHIJKLMNO|
 00000050  50 51 52 53 54 55 56 57  58 59 5a 5b 5c 5d 5e 5f  |PQRSTUVWXYZ[\]^_|

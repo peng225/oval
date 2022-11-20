@@ -71,8 +71,8 @@ func generateDataUnit(unitCount, workerID int, bucketName string, obj *object.Ob
 	binary.LittleEndian.PutUint32(numBinBuf[4:8], uint32(offsetInObject))
 	dt := time.Now()
 	unixTime := dt.UnixMicro()
-	binary.LittleEndian.PutUint64(numBinBuf[8:], uint64(unixTime))
-	binary.LittleEndian.PutUint32(numBinBuf[16:], uint32(workerID))
+	binary.LittleEndian.PutUint32(numBinBuf[8:], uint32(workerID))
+	binary.LittleEndian.PutUint64(numBinBuf[12:], uint64(unixTime))
 	writer.Write(numBinBuf)
 
 	unitBodyStartPos := object.MAX_BUCKET_NAME_LENGTH + object.MAX_KEY_LENGTH + dataUnitHeaderSizeWithoutBucketAndKey
@@ -134,15 +134,14 @@ func validDataUnit(unitCount, workerID int, expectedBucketName string, obj *obje
 			unitCount*dataUnitSize, offsetInObject, dump(hex.Dump(data)))
 	}
 
-	// Skip the unix time area.
-	current += 8
-
 	actualWorkerID := int(binary.LittleEndian.Uint32(data[current : current+4]))
 	current = current + 4
 	if workerID != actualWorkerID {
 		return fmt.Errorf("WorkerID is wrong. (expected = \"%d\", actual = \"%d\")\n%s\n",
 			workerID, actualWorkerID, dump(hex.Dump(data)))
 	}
+
+	// Skip the unix time area.
 
 	return nil
 }
@@ -154,9 +153,9 @@ func dump(data string) string {
 	const lineSize = 79
 	output := ""
 	byteExplanation := []string{
-		"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ bucket name\n                                               ^^^^^^^^^^^\n",
-		"          ^^^^^^^^^^^^^^^^^^^^^^^ key name\n                                   ^^^^^^^^^^^ write count\n                                               ^^^^^^^^^^^ byte offset in this object\n",
-		"          ^^^^^^^^^^^^^^^^^^^^^^^ unix time (micro sec)\n                                   ^^^^^^^^^^^ worker ID\n",
+		"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ bucket name\n",
+		"          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ key name\n                                               ^^^^^^^^^^^ write count\n",
+		"          ^^^^^^^^^^^ byte offset in this object\n                      ^^^^^^^^^^^ worker ID\n                                   ^^^^^^^^^^^^^^^^^^^^^^^ unix time (micro sec)\n",
 	}
 
 	for _, exp := range byteExplanation {
