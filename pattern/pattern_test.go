@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	testBucketName = "test-bucket"
-	testKeyName    = "test-key"
+	testBucketName     = "test-bucket"
+	testLongBucketName = "test-long-long-long-bucket"
+	testKeyName        = "test-key"
 )
 
 /*******************************/
@@ -44,7 +45,8 @@ func (suite *GeneratorSuite) TestGenerateDataUnitSuccess() {
 	suite.Equal(dataUnitSize, len(data))
 
 	// bucketName
-	suite.Equal(append([]byte(testBucketName), 0x20), data[0:object.MAX_BUCKET_NAME_LENGTH])
+	suite.Equal(append([]byte(testBucketName), 0x20, 0x20, 0x20, 0x20, 0x20),
+		data[0:object.MAX_BUCKET_NAME_LENGTH])
 	current := object.MAX_BUCKET_NAME_LENGTH
 	// keyName
 	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
@@ -55,8 +57,7 @@ func (suite *GeneratorSuite) TestGenerateDataUnitSuccess() {
 	// Check offset
 	suite.Equal([]byte{0x00, 0x04, 0x00, 0x00}, data[current:current+4]) // hex(256*4) = 0x400
 	current += 4
-	current += 8 // Skip unix time area
-	// Check offset
+	// Check worker ID
 	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
 }
 
@@ -76,7 +77,8 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 
 	// 1st data unit
 	// bucketName
-	suite.Equal(append([]byte(testBucketName), 0x20), data[0:object.MAX_BUCKET_NAME_LENGTH])
+	suite.Equal(append([]byte(testBucketName), 0x20, 0x20, 0x20, 0x20, 0x20),
+		data[0:object.MAX_BUCKET_NAME_LENGTH])
 	current := object.MAX_BUCKET_NAME_LENGTH
 	// keyName
 	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
@@ -87,14 +89,14 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 	// Check offset
 	suite.Equal([]byte{0x00, 0x00, 0x00, 0x00}, data[current:current+4])
 	current += 4
-	current += 8 // Skip unix time area
-	// Check offset
+	// Check worker ID
 	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
 
 	// 2nd data unit
 	current = dataUnitSize
 	// bucketName
-	suite.Equal(append([]byte(testBucketName), 0x20), data[current:current+object.MAX_BUCKET_NAME_LENGTH])
+	suite.Equal(append([]byte(testBucketName), 0x20, 0x20, 0x20, 0x20, 0x20),
+		data[current:current+object.MAX_BUCKET_NAME_LENGTH])
 	current += object.MAX_BUCKET_NAME_LENGTH
 	// keyName
 	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
@@ -105,8 +107,57 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 	// Check offset
 	suite.Equal([]byte{0x00, 0x01, 0x00, 0x00}, data[current:current+4]) // hex(256*1) = 0x100
 	current += 4
-	current += 8 // Skip unix time area
+	// Check worker ID
+	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
+}
+
+func (suite *GeneratorSuite) TestGenerateLongBucketName() {
+	obj := &object.Object{
+		Key:        testKeyName,
+		Size:       256,
+		WriteCount: 300,
+	}
+	workerID := 100
+
+	readSeeker, size, err := Generate(512, 512, workerID, testLongBucketName, obj)
+	suite.NoError(err)
+	suite.Equal(512, size)
+	data, err := io.ReadAll(readSeeker)
+	suite.NoError(err)
+
+	// 1st data unit
+	// bucketName
+	suite.Equal(append([]byte(testLongBucketName[:object.MAX_BUCKET_NAME_LENGTH])),
+		data[0:object.MAX_BUCKET_NAME_LENGTH])
+	current := object.MAX_BUCKET_NAME_LENGTH
+	// keyName
+	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
+	current += object.MAX_KEY_LENGTH
+	// Check write count
+	suite.Equal([]byte{0x2c, 0x01, 0x00, 0x00}, data[current:current+4]) // hex(300) = 0x12c
+	current += 4
 	// Check offset
+	suite.Equal([]byte{0x00, 0x00, 0x00, 0x00}, data[current:current+4])
+	current += 4
+	// Check worker ID
+	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
+
+	// 2nd data unit
+	current = dataUnitSize
+	// bucketName
+	suite.Equal(append([]byte(testLongBucketName[:object.MAX_BUCKET_NAME_LENGTH])),
+		data[current:current+object.MAX_BUCKET_NAME_LENGTH])
+	current += object.MAX_BUCKET_NAME_LENGTH
+	// keyName
+	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
+	current += object.MAX_KEY_LENGTH
+	// Check write count
+	suite.Equal([]byte{0x2c, 0x01, 0x00, 0x00}, data[current:current+4]) // hex(300) = 0x12c
+	current += 4
+	// Check offset
+	suite.Equal([]byte{0x00, 0x01, 0x00, 0x00}, data[current:current+4]) // hex(256*1) = 0x100
+	current += 4
+	// Check worker ID
 	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
 }
 
@@ -139,6 +190,21 @@ func (suite *GeneratorSuite) TestValidSuccess() {
 	obj.Size = size
 
 	err = Valid(workerID, testBucketName, obj, readSeeker)
+	suite.NoError(err)
+}
+
+func (suite *GeneratorSuite) TestValidLongBucketName() {
+	obj := &object.Object{
+		Key:        testKeyName,
+		WriteCount: 300,
+	}
+	workerID := 100
+
+	readSeeker, size, err := Generate(1024, 1024, workerID, testLongBucketName, obj)
+	suite.NoError(err)
+	obj.Size = size
+
+	err = Valid(workerID, testLongBucketName, obj, readSeeker)
 	suite.NoError(err)
 }
 
