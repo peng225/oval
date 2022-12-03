@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: oval
+  namespace: oval
+spec:
+  template:
+    spec:
+      containers:
+      - name: oval
+        image: ghcr.io/peng225/oval:v0.5.2
+        args:
+          - "-size"
+          - "4k-16k"
+          - "-time"
+          - "5"
+          - "-num_obj"
+          - "1000"
+          - "-num_worker"
+          - "4"
+          - "-bucket"
+          - "$(BUCKET_NAME)"
+          - "-endpoint"
+          - "http://$(BUCKET_HOST):$(PORT)"
+        env:
+          - name: BUCKET_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: ceph-delete-bucket
+                key: BUCKET_HOST
+          - name: PORT
+            valueFrom:
+              configMapKeyRef:
+                name: ceph-delete-bucket
+                key: BUCKET_PORT
+          - name: AWS_REGION
+            valueFrom:
+              configMapKeyRef:
+                name: ceph-delete-bucket
+                key: BUCKET_REGION
+          - name: BUCKET_NAME
+            valueFrom:
+              configMapKeyRef:
+                name: ceph-delete-bucket
+                key: BUCKET_NAME
+        envFrom:
+          - secretRef:
+              name: ceph-delete-bucket
+      restartPolicy: Never
+  backoffLimit: 4 
