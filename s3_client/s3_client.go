@@ -32,7 +32,8 @@ func (nf *NotFound) Error() string {
 	return nf.errorMessage
 }
 
-func (s *S3Client) Init(endpoint string) {
+func NewS3Client(endpoint string) *S3Client {
+	s := &S3Client{}
 	var cfg aws.Config
 	var err error
 	if endpoint != "" {
@@ -57,6 +58,8 @@ func (s *S3Client) Init(endpoint string) {
 
 	// Create an Amazon S3 service client
 	s.client = s3.NewFromConfig(cfg)
+
+	return s
 }
 
 func (s *S3Client) CreateBucket(bucketName string) error {

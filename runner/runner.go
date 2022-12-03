@@ -82,8 +82,7 @@ func loadSavedContext(loadFileName string) *ExecutionContext {
 }
 
 func (r *Runner) init() {
-	r.client = &s3_client.S3Client{}
-	r.client.Init(r.execContext.Endpoint)
+	r.client = s3_client.NewS3Client(r.execContext.Endpoint)
 	for _, bucketName := range r.execContext.BucketNames {
 		err := r.client.HeadBucket(bucketName)
 		if err != nil {
@@ -124,12 +123,10 @@ func (r *Runner) init() {
 			for j, bucketName := range r.execContext.BucketNames {
 				r.execContext.Workers[i].BucketsWithObject[j] = &BucketWithObject{
 					BucketName: bucketName,
-					ObjectMata: object.ObjectMeta{},
+					ObjectMata: object.NewObjectMeta(
+						r.execContext.NumObj/r.execContext.NumWorker,
+						r.execContext.NumObj/r.execContext.NumWorker*i),
 				}
-				r.execContext.Workers[i].BucketsWithObject[j].ObjectMata.Init(
-					r.execContext.NumObj/r.execContext.NumWorker,
-					r.execContext.NumObj/r.execContext.NumWorker*i,
-				)
 			}
 			r.execContext.Workers[i].client = r.client
 			r.execContext.Workers[i].st = &r.st
@@ -156,17 +153,17 @@ func (r *Runner) Run() {
 	now := time.Now()
 	for i := 0; i < r.execContext.NumWorker; i++ {
 		wg.Add(1)
-		go func(workerId int) {
+		go func(workerID int) {
 			defer wg.Done()
 			for time.Since(now).Milliseconds() < r.timeInMs {
 				operation := r.selectOperation()
 				switch operation {
 				case Put:
-					r.execContext.Workers[workerId].Put()
+					r.execContext.Workers[workerID].Put()
 				case Get:
-					r.execContext.Workers[workerId].Get()
+					r.execContext.Workers[workerID].Get()
 				case Delete:
-					r.execContext.Workers[workerId].Delete()
+					r.execContext.Workers[workerID].Delete()
 				}
 			}
 		}(i)
