@@ -39,75 +39,78 @@ func NewObject(id int) *Object {
 }
 
 func generateKey(id int) string {
-	currentId := id
-	return fmt.Sprintf("ov%010d", currentId)
+	currentID := id
+	return fmt.Sprintf("ov%010d", currentID)
 }
 
-func (ol *ObjectMeta) Init(numObj, keyIDOffset int) {
-	ol.ObjectList = make([]Object, numObj)
-	for objId := 0; objId < numObj; objId++ {
-		ol.ObjectList[objId] = *NewObject(keyIDOffset + objId)
+func NewObjectMeta(numObj, keyIDOffset int) *ObjectMeta {
+	om := &ObjectMeta{}
+	om.ObjectList = make([]Object, numObj)
+	for objID := 0; objID < numObj; objID++ {
+		om.ObjectList[objID] = *NewObject(keyIDOffset + objID)
 	}
-	ol.ExistingObjectIDs = make([]int, 0, int(math.Sqrt(float64(numObj))))
-	ol.KeyIDOffset = keyIDOffset
+	om.ExistingObjectIDs = make([]int, 0, int(math.Sqrt(float64(numObj))))
+	om.KeyIDOffset = keyIDOffset
+
+	return om
 }
 
-func (ol *ObjectMeta) GetRandomObject() *Object {
-	objId := rand.Intn(len(ol.ObjectList))
-	return &ol.ObjectList[objId]
+func (om *ObjectMeta) GetRandomObject() *Object {
+	objID := rand.Intn(len(om.ObjectList))
+	return &om.ObjectList[objID]
 }
 
-// Caution: this function should be called while the for the object lock is acquired.
-func (ol *ObjectMeta) RegisterToExistingList(key string) {
-	objId, err := strconv.Atoi(key[2:])
+// Caution: this function should be called while the object lock is acquired.
+func (om *ObjectMeta) RegisterToExistingList(key string) {
+	objID, err := strconv.Atoi(key[2:])
 	if err != nil {
 		log.Fatal(err)
 	}
-	objId -= ol.KeyIDOffset
-	for _, eoId := range ol.ExistingObjectIDs {
-		if eoId == objId {
+	objID -= om.KeyIDOffset
+	for _, eoID := range om.ExistingObjectIDs {
+		if eoID == objID {
 			// The key is already registered.
 			return
 		}
 	}
-	ol.ExistingObjectIDs = append(ol.ExistingObjectIDs, objId)
-	if len(ol.ObjectList) < len(ol.ExistingObjectIDs) {
+	om.ExistingObjectIDs = append(om.ExistingObjectIDs, objID)
+	if len(om.ObjectList) < len(om.ExistingObjectIDs) {
 		log.Fatal("Invalid contents of existing object ID list.")
 	}
 }
 
-func (ol *ObjectMeta) PopExistingRandomObject() *Object {
-	if len(ol.ExistingObjectIDs) == 0 {
+func (om *ObjectMeta) PopExistingRandomObject() *Object {
+	if len(om.ExistingObjectIDs) == 0 {
 		return nil
 	}
-	existingObjId := rand.Intn(len(ol.ExistingObjectIDs))
+	existingObjID := rand.Intn(len(om.ExistingObjectIDs))
 
-	objId := ol.ExistingObjectIDs[existingObjId]
-	// Delete the `existingObjId`-th entry from existing object id list
-	ol.ExistingObjectIDs[existingObjId] = ol.ExistingObjectIDs[len(ol.ExistingObjectIDs)-1]
-	ol.ExistingObjectIDs = ol.ExistingObjectIDs[:len(ol.ExistingObjectIDs)-1]
-	return &ol.ObjectList[objId]
+	objID := om.ExistingObjectIDs[existingObjID]
+	// Delete the `existingObjID`-th entry from existing object ID list
+	om.ExistingObjectIDs[existingObjID] = om.ExistingObjectIDs[len(om.ExistingObjectIDs)-1]
+	om.ExistingObjectIDs = om.ExistingObjectIDs[:len(om.ExistingObjectIDs)-1]
+	return &om.ObjectList[objID]
 }
 
-func (ol *ObjectMeta) GetExistingRandomObject() *Object {
-	if len(ol.ExistingObjectIDs) == 0 {
+func (om *ObjectMeta) GetExistingRandomObject() *Object {
+	if len(om.ExistingObjectIDs) == 0 {
 		return nil
 	}
-	existingObjId := rand.Intn(len(ol.ExistingObjectIDs))
+	existingObjID := rand.Intn(len(om.ExistingObjectIDs))
 
-	objId := ol.ExistingObjectIDs[existingObjId]
-	return &ol.ObjectList[objId]
+	objID := om.ExistingObjectIDs[existingObjID]
+	return &om.ObjectList[objID]
 }
 
-func (ol *ObjectMeta) Exist(key string) bool {
-	for _, id := range ol.ExistingObjectIDs {
-		if key == ol.ObjectList[id].Key {
+func (om *ObjectMeta) Exist(key string) bool {
+	for _, id := range om.ExistingObjectIDs {
+		if key == om.ObjectList[id].Key {
 			return true
 		}
 	}
 	return false
 }
 
-func (ol *ObjectMeta) GetHeadAndTailKey() (string, string) {
-	return ol.ObjectList[0].Key, ol.ObjectList[len(ol.ObjectList)-1].Key
+func (om *ObjectMeta) GetHeadAndTailKey() (string, string) {
+	return om.ObjectList[0].Key, om.ObjectList[len(om.ObjectList)-1].Key
 }

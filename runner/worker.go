@@ -22,8 +22,8 @@ type Worker struct {
 }
 
 type BucketWithObject struct {
-	BucketName string            `json:"bucketName"`
-	ObjectMata object.ObjectMeta `json:"objectMata"`
+	BucketName string             `json:"bucketName"`
+	ObjectMata *object.ObjectMeta `json:"objectMeta"`
 }
 
 func (v *Worker) ShowInfo() {
