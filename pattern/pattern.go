@@ -114,40 +114,46 @@ func Valid(workerID int, expectedBucketName string, obj *object.Object, reader i
 func validDataUnit(unitCount, workerID int, expectedBucketName string, obj *object.Object, data []byte) error {
 	bucketName := data[0:object.MAX_BUCKET_NAME_LENGTH]
 	current := object.MAX_BUCKET_NAME_LENGTH
+	errMsg := ""
 	if expectedBucketName != strings.TrimSpace(string(bucketName)) {
-		return fmt.Errorf("Bucket name is wrong. (expected = \"%s\", actual = \"%s\")\n%s\n",
-			expectedBucketName, strings.TrimSpace(string(bucketName)), dump(hex.Dump(data)))
+		errMsg += fmt.Sprintf("- Bucket name is wrong. (expected = \"%s\", actual = \"%s\")\n",
+			expectedBucketName, strings.TrimSpace(string(bucketName)))
 	}
 
 	key := data[current : current+object.MAX_KEY_LENGTH]
 	current = current + object.MAX_KEY_LENGTH
 	if obj.Key != strings.TrimSpace(string(key)) {
-		return fmt.Errorf("Key name is wrong. (expected = \"%s\", actual = \"%s\")\n%s\n",
-			obj.Key, strings.TrimSpace(string(key)), dump(hex.Dump(data)))
+		errMsg += fmt.Sprintf("- Key name is wrong. (expected = \"%s\", actual = \"%s\")\n",
+			obj.Key, strings.TrimSpace(string(key)))
 	}
 
 	writeCount := binary.LittleEndian.Uint32(data[current : current+4])
 	current += 4
 	if uint32(obj.WriteCount) != writeCount {
-		return fmt.Errorf("WriteCount is wrong. (expected = \"%d\", actual = \"%d\")\n%s\n",
-			obj.WriteCount, writeCount, dump(hex.Dump(data)))
+		errMsg += fmt.Sprintf("- WriteCount is wrong. (expected = \"%d\", actual = \"%d\")\n",
+			obj.WriteCount, writeCount)
 	}
 
 	offsetInObject := binary.LittleEndian.Uint32(data[current : current+4])
 	current += 4
 	if uint32(unitCount*dataUnitSize) != offsetInObject {
-		return fmt.Errorf("OffsetInObject is wrong. (expected = \"%d\", actual = \"%d\")\n%s\n",
-			unitCount*dataUnitSize, offsetInObject, dump(hex.Dump(data)))
+		errMsg += fmt.Sprintf("- OffsetInObject is wrong. (expected = \"%d\", actual = \"%d\")\n",
+			unitCount*dataUnitSize, offsetInObject)
 	}
 
 	actualWorkerID := int(binary.LittleEndian.Uint32(data[current : current+4]))
 	current = current + 4
 	if workerID != actualWorkerID {
-		return fmt.Errorf("WorkerID is wrong. (expected = \"%d\", actual = \"%d\")\n%s\n",
-			workerID, actualWorkerID, dump(hex.Dump(data)))
+		errMsg += fmt.Sprintf("- WorkerID is wrong. (expected = \"%d\", actual = \"%d\")\n",
+			workerID, actualWorkerID)
 	}
 
 	// Skip the unix time area.
+
+	if errMsg != "" {
+		errMsg += dump(hex.Dump(data)) + "\n"
+		return errors.New(errMsg)
+	}
 
 	return nil
 }

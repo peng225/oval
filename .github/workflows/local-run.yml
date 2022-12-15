@@ -26,4 +26,7 @@ jobs:
       env:
         AWS_ACCESS_KEY_ID: "minioadmin"
         AWS_SECRET_ACCESS_KEY: "minioadmin"
-      run: make local-run
+      run: |
+        make start-minio
+        make run
+        make stop-minio
