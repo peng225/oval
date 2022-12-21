@@ -37,11 +37,11 @@ func main() {
 
 	log.SetFlags(log.Lshortfile)
 
-	minSize, maxSize, err := argparser.SizeParse(sizePattern)
+	minSize, maxSize, err := argparser.ParseSize(sizePattern)
 	if err != nil {
 		log.Fatal(err)
 	}
-	opeRatios, err := argparser.OpeRatioParse(opeRatioStr)
+	opeRatios, err := argparser.ParseOpeRatio(opeRatioStr)
 	if err != nil {
 		log.Fatal(err)
 	}

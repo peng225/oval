@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func SizeParse(s string) (int, int, error) {
+func ParseSize(s string) (int, int, error) {
 	s = strings.ToLower(s)
 	var sizesStr []string
 	if strings.Contains(s, "-") {
