@@ -29,8 +29,8 @@ func Generate(minSize, maxSize, workerID int, bucketName string, obj *object.Obj
 	if maxSize < minSize {
 		return nil, 0, errors.New("maxSize should be larger than minSize.")
 	}
-	if len(bucketName) > object.MAX_BUCKET_NAME_LENGTH {
-		bucketName = bucketName[:object.MAX_BUCKET_NAME_LENGTH]
+	if len(bucketName) > object.MaxBucketNameLength {
+		bucketName = bucketName[:object.MaxBucketNameLength]
 	}
 
 	var dataSize int
@@ -59,13 +59,13 @@ func Generate(minSize, maxSize, workerID int, bucketName string, obj *object.Obj
 }
 
 func generateDataUnit(unitCount, workerID int, bucketName string, obj *object.Object, writer io.Writer) error {
-	bucketKeyformat := fmt.Sprintf("%%-%vs%%-%vs", object.MAX_BUCKET_NAME_LENGTH, object.MAX_KEY_LENGTH)
+	bucketKeyformat := fmt.Sprintf("%%-%vs%%-%vs", object.MaxBucketNameLength, object.MaxKeyLength)
 	offsetInObject := unitCount * dataUnitSize
 	n, err := writer.Write([]byte(fmt.Sprintf(bucketKeyformat, bucketName, obj.Key)))
 	if err != nil {
 		return err
 	}
-	if n != object.MAX_BUCKET_NAME_LENGTH+object.MAX_KEY_LENGTH {
+	if n != object.MaxBucketNameLength+object.MaxKeyLength {
 		return fmt.Errorf("bucket name and key was not written correctly. n = %d", n)
 	}
 
@@ -78,7 +78,7 @@ func generateDataUnit(unitCount, workerID int, bucketName string, obj *object.Ob
 	binary.LittleEndian.PutUint64(numBinBuf[12:], uint64(unixTime))
 	writer.Write(numBinBuf)
 
-	unitBodyStartPos := object.MAX_BUCKET_NAME_LENGTH + object.MAX_KEY_LENGTH + dataUnitHeaderSizeWithoutBucketAndKey
+	unitBodyStartPos := object.MaxBucketNameLength + object.MaxKeyLength + dataUnitHeaderSizeWithoutBucketAndKey
 	tmpData := make([]byte, 4)
 	for i := unitBodyStartPos; i < dataUnitSize; i += 4 {
 		tmpData[0] = byte(i)
@@ -94,8 +94,8 @@ func generateDataUnit(unitCount, workerID int, bucketName string, obj *object.Ob
 }
 
 func Valid(workerID int, expectedBucketName string, obj *object.Object, reader io.Reader) error {
-	if len(expectedBucketName) > object.MAX_BUCKET_NAME_LENGTH {
-		expectedBucketName = expectedBucketName[:object.MAX_BUCKET_NAME_LENGTH]
+	if len(expectedBucketName) > object.MaxBucketNameLength {
+		expectedBucketName = expectedBucketName[:object.MaxBucketNameLength]
 	}
 	data := make([]byte, dataUnitSize)
 	for i := 0; i < obj.Size/dataUnitSize; i++ {
@@ -112,16 +112,16 @@ func Valid(workerID int, expectedBucketName string, obj *object.Object, reader i
 }
 
 func validDataUnit(unitCount, workerID int, expectedBucketName string, obj *object.Object, data []byte) error {
-	bucketName := data[0:object.MAX_BUCKET_NAME_LENGTH]
-	current := object.MAX_BUCKET_NAME_LENGTH
+	bucketName := data[0:object.MaxBucketNameLength]
+	current := object.MaxBucketNameLength
 	errMsg := ""
 	if expectedBucketName != strings.TrimSpace(string(bucketName)) {
 		errMsg += fmt.Sprintf("- Bucket name is wrong. (expected = \"%s\", actual = \"%s\")\n",
 			expectedBucketName, strings.TrimSpace(string(bucketName)))
 	}
 
-	key := data[current : current+object.MAX_KEY_LENGTH]
-	current = current + object.MAX_KEY_LENGTH
+	key := data[current : current+object.MaxKeyLength]
+	current = current + object.MaxKeyLength
 	if obj.Key != strings.TrimSpace(string(key)) {
 		errMsg += fmt.Sprintf("- Key name is wrong. (expected = \"%s\", actual = \"%s\")\n",
 			obj.Key, strings.TrimSpace(string(key)))

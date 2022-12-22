@@ -46,11 +46,11 @@ func (suite *GeneratorSuite) TestGenerateDataUnitSuccess() {
 
 	// bucketName
 	suite.Equal(append([]byte(testBucketName), 0x20, 0x20, 0x20, 0x20, 0x20),
-		data[0:object.MAX_BUCKET_NAME_LENGTH])
-	current := object.MAX_BUCKET_NAME_LENGTH
+		data[0:object.MaxBucketNameLength])
+	current := object.MaxBucketNameLength
 	// keyName
-	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
-	current += object.MAX_KEY_LENGTH
+	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MaxKeyLength])
+	current += object.MaxKeyLength
 	// Check write count
 	suite.Equal([]byte{0x2c, 0x01, 0x00, 0x00}, data[current:current+4]) // hex(300) = 0x12c
 	current += 4
@@ -78,11 +78,11 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 	// 1st data unit
 	// bucketName
 	suite.Equal(append([]byte(testBucketName), 0x20, 0x20, 0x20, 0x20, 0x20),
-		data[0:object.MAX_BUCKET_NAME_LENGTH])
-	current := object.MAX_BUCKET_NAME_LENGTH
+		data[0:object.MaxBucketNameLength])
+	current := object.MaxBucketNameLength
 	// keyName
-	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
-	current += object.MAX_KEY_LENGTH
+	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MaxKeyLength])
+	current += object.MaxKeyLength
 	// Check write count
 	suite.Equal([]byte{0x2c, 0x01, 0x00, 0x00}, data[current:current+4]) // hex(300) = 0x12c
 	current += 4
@@ -96,11 +96,11 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 	current = dataUnitSize
 	// bucketName
 	suite.Equal(append([]byte(testBucketName), 0x20, 0x20, 0x20, 0x20, 0x20),
-		data[current:current+object.MAX_BUCKET_NAME_LENGTH])
-	current += object.MAX_BUCKET_NAME_LENGTH
+		data[current:current+object.MaxBucketNameLength])
+	current += object.MaxBucketNameLength
 	// keyName
-	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
-	current += object.MAX_KEY_LENGTH
+	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MaxKeyLength])
+	current += object.MaxKeyLength
 	// Check write count
 	suite.Equal([]byte{0x2c, 0x01, 0x00, 0x00}, data[current:current+4]) // hex(300) = 0x12c
 	current += 4
@@ -127,12 +127,12 @@ func (suite *GeneratorSuite) TestGenerateLongBucketName() {
 
 	// 1st data unit
 	// bucketName
-	suite.Equal(append([]byte(testLongBucketName[:object.MAX_BUCKET_NAME_LENGTH])),
-		data[0:object.MAX_BUCKET_NAME_LENGTH])
-	current := object.MAX_BUCKET_NAME_LENGTH
+	suite.Equal(append([]byte(testLongBucketName[:object.MaxBucketNameLength])),
+		data[0:object.MaxBucketNameLength])
+	current := object.MaxBucketNameLength
 	// keyName
-	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
-	current += object.MAX_KEY_LENGTH
+	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MaxKeyLength])
+	current += object.MaxKeyLength
 	// Check write count
 	suite.Equal([]byte{0x2c, 0x01, 0x00, 0x00}, data[current:current+4]) // hex(300) = 0x12c
 	current += 4
@@ -145,12 +145,12 @@ func (suite *GeneratorSuite) TestGenerateLongBucketName() {
 	// 2nd data unit
 	current = dataUnitSize
 	// bucketName
-	suite.Equal(append([]byte(testLongBucketName[:object.MAX_BUCKET_NAME_LENGTH])),
-		data[current:current+object.MAX_BUCKET_NAME_LENGTH])
-	current += object.MAX_BUCKET_NAME_LENGTH
+	suite.Equal(append([]byte(testLongBucketName[:object.MaxBucketNameLength])),
+		data[current:current+object.MaxBucketNameLength])
+	current += object.MaxBucketNameLength
 	// keyName
-	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MAX_KEY_LENGTH])
-	current += object.MAX_KEY_LENGTH
+	suite.Equal(append([]byte(testKeyName), 0x20, 0x20, 0x20, 0x20), data[current:current+object.MaxKeyLength])
+	current += object.MaxKeyLength
 	// Check write count
 	suite.Equal([]byte{0x2c, 0x01, 0x00, 0x00}, data[current:current+4]) // hex(300) = 0x12c
 	current += 4
