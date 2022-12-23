@@ -33,7 +33,7 @@ func (v *Worker) ShowInfo() {
 	fmt.Printf("Worker ID = %#x, Key = [%s, %s]\n", v.id, head, tail)
 }
 
-func (v *Worker) Put() {
+func (v *Worker) Put() error {
 	bucketWithObj := v.selectBucketWithObject()
 	obj := bucketWithObj.ObjectMata.GetRandomObject()
 
@@ -44,20 +44,27 @@ func (v *Worker) Put() {
 		if errors.As(err, &nsk) {
 			if bucketWithObj.ObjectMata.Exist(obj.Key) {
 				// expect: exists, actual: does not exist
-				log.Fatalf("An object has been lost. (key = %s)", obj.Key)
+				err = fmt.Errorf("An object has been lost. (key = %s)", obj.Key)
+				log.Println(err.Error())
+				return err
 			}
 		} else {
-			log.Fatal(err)
+			log.Println(err.Error())
+			return err
 		}
 	} else {
 		defer getBeforeBody.Close()
 		if !bucketWithObj.ObjectMata.Exist(obj.Key) {
 			// expect: does not exist, actual: exists
-			log.Fatalf("An unexpected object was found. (key = %s)", obj.Key)
+			err = fmt.Errorf("An unexpected object was found. (key = %s)", obj.Key)
+			log.Println(err.Error())
+			return err
 		}
 		err := pattern.Valid(v.id, bucketWithObj.BucketName, obj, getBeforeBody)
 		if err != nil {
-			log.Fatalf("Data validation error occurred before put.\n%v", err)
+			err = fmt.Errorf("Data validation error occurred before put.\n%w", err)
+			log.Println(err.Error())
+			return err
 		}
 		v.st.AddGetForValidCount()
 	}
@@ -67,11 +74,13 @@ func (v *Worker) Put() {
 	body, size, err := pattern.Generate(v.minSize, v.maxSize, v.id, bucketWithObj.BucketName, obj)
 	obj.Size = size
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err.Error())
+		return err
 	}
 	err = v.client.PutObject(bucketWithObj.BucketName, obj.Key, body)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err.Error())
+		return err
 	}
 	v.st.AddPutCount()
 
@@ -80,24 +89,30 @@ func (v *Worker) Put() {
 	if err != nil {
 		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
-			log.Fatalf("Object lost after put.\nerr: %v\nobj: %v", err, obj)
+			err = fmt.Errorf("Object lost after put.\nerr: %w\nobj: %v", err, obj)
+			log.Println(err.Error())
+			return err
 		} else {
-			log.Fatal(err)
+			log.Println(err.Error())
+			return err
 		}
 	}
 	defer getAfterBody.Close()
 	err = pattern.Valid(v.id, bucketWithObj.BucketName, obj, getAfterBody)
 	if err != nil {
-		log.Fatalf("Data validation error occurred after put.\n%v", err)
+		err = fmt.Errorf("Data validation error occurred after put.\n%w", err)
+		log.Println(err.Error())
+		return err
 	}
 	v.st.AddGetForValidCount()
+	return nil
 }
 
-func (v *Worker) Get() {
+func (v *Worker) Get() error {
 	bucketWithObj := v.selectBucketWithObject()
 	obj := bucketWithObj.ObjectMata.GetExistingRandomObject()
 	if obj == nil {
-		return
+		return nil
 	}
 
 	// Validation on get
@@ -105,24 +120,30 @@ func (v *Worker) Get() {
 	if err != nil {
 		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
-			log.Fatalf("Object lost before get.\nerr: %v\nobj: %v", err, obj)
+			err = fmt.Errorf("Object lost before get.\nerr: %w\nobj: %v", err, obj)
+			log.Println(err.Error())
+			return err
 		} else {
-			log.Fatal(err)
+			log.Println(err.Error())
+			return err
 		}
 	}
 	defer body.Close()
 	err = pattern.Valid(v.id, bucketWithObj.BucketName, obj, body)
 	if err != nil {
-		log.Fatalf("Data validation error occurred at get operation.\n%v", err)
+		err = fmt.Errorf("Data validation error occurred at get operation.\n%w", err)
+		log.Println(err.Error())
+		return err
 	}
 	v.st.AddGetCount()
+	return nil
 }
 
-func (v *Worker) Delete() {
+func (v *Worker) Delete() error {
 	bucketWithObj := v.selectBucketWithObject()
 	obj := bucketWithObj.ObjectMata.PopExistingRandomObject()
 	if obj == nil {
-		return
+		return nil
 	}
 
 	// Validation before delete
@@ -130,21 +151,27 @@ func (v *Worker) Delete() {
 	if err != nil {
 		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
-			log.Fatalf("Object lost before delete.\nerr: %v\nobj: %v", err, obj)
+			err = fmt.Errorf("Object lost before delete.\nerr: %w\nobj: %v", err, obj)
+			log.Println(err.Error())
+			return err
 		} else {
-			log.Fatal(err)
+			log.Println(err.Error())
+			return err
 		}
 	}
 	defer getBeforeBody.Close()
 	err = pattern.Valid(v.id, bucketWithObj.BucketName, obj, getBeforeBody)
 	if err != nil {
-		log.Fatalf("Data validation error occurred before delete.\n%v", err)
+		err = fmt.Errorf("Data validation error occurred before delete.\n%w", err)
+		log.Println(err.Error())
+		return err
 	}
 	v.st.AddGetForValidCount()
 
 	err = v.client.DeleteObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err.Error())
+		return err
 	}
 	v.st.AddDeleteCount()
 
@@ -153,13 +180,18 @@ func (v *Worker) Delete() {
 	if err != nil {
 		var nsk *s3_client.NoSuchKey
 		if !errors.As(err, &nsk) {
-			log.Fatalf("Unexpected error occurred. (err = %v)", err)
+			err = fmt.Errorf("Unexpected error occurred. (err = %w)", err)
+			log.Println(err.Error())
+			return err
 		}
 	} else {
 		defer getAfterBody.Close()
-		log.Fatalf("expected: object not found, actual: object found. (obj = %v)", *obj)
+		err = fmt.Errorf("expected: object not found, actual: object found. (obj = %v)", *obj)
+		log.Println(err.Error())
+		return err
 	}
 	obj.Clear()
+	return nil
 }
 
 func (v *Worker) selectBucketWithObject() *BucketWithObject {

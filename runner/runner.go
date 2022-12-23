@@ -24,7 +24,7 @@ const (
 type ExecutionContext struct {
 	Endpoint      string   `json:"endpoint"`
 	BucketNames   []string `json:"bucketNames"`
-	NumObj        int      `json:"numObj"`
+	NumObj        int64    `json:"numObj"`
 	NumWorker     int      `json:"numWorker"`
 	MinSize       int      `json:"minSize"`
 	MaxSize       int      `json:"maxSize"`
@@ -40,15 +40,18 @@ type Runner struct {
 	loadFileName string
 	client       *s3_client.S3Client
 	st           stat.Stat
+	processID    int
 }
 
-func NewRunner(execContext *ExecutionContext, opeRatios []float64, timeInMs int64, profiler bool, loadFileName string) *Runner {
+func NewRunner(execContext *ExecutionContext, opeRatios []float64, timeInMs int64,
+	profiler bool, loadFileName string, processID int) *Runner {
 	runner := &Runner{
 		execContext:  execContext,
 		opeRatios:    opeRatios,
 		timeInMs:     timeInMs,
 		profiler:     profiler,
 		loadFileName: loadFileName,
+		processID:    processID,
 	}
 	runner.init()
 	return runner
@@ -63,18 +66,18 @@ func NewRunnerFromLoadFile(loadFileName string, opeRatios []float64, timeInMs in
 		log.Fatal(err)
 	}
 	ec := loadSavedContext(loadFileName)
-	return NewRunner(ec, opeRatios, timeInMs, profiler, loadFileName)
+	return NewRunner(ec, opeRatios, timeInMs, profiler, loadFileName, 0)
 }
 
 func loadSavedContext(loadFileName string) *ExecutionContext {
 	f, err := os.Open(loadFileName)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	defer f.Close()
 	savedContext, err := io.ReadAll(f)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	ec := &ExecutionContext{}
 	json.Unmarshal(savedContext, ec)
@@ -101,8 +104,9 @@ func (r *Runner) init() {
 				log.Fatal(err)
 			}
 		} else {
+			// In multi-process mode, bucket clear is executed only by the leader.
 			if r.loadFileName == "" {
-				err = r.client.ClearBucket(bucketName)
+				err = r.client.ClearBucket(bucketName, fmt.Sprintf("%s%02x", object.KeyPrefix, r.processID))
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -115,7 +119,7 @@ func (r *Runner) init() {
 		rand.Seed(time.Now().UnixNano())
 		startID := rand.Intn(maxWorkerID)
 		r.execContext.StartWorkerID = startID
-		for i, _ := range r.execContext.Workers {
+		for i := range r.execContext.Workers {
 			r.execContext.Workers[i].id = (startID + i) % maxWorkerID
 			r.execContext.Workers[i].minSize = r.execContext.MinSize
 			r.execContext.Workers[i].maxSize = r.execContext.MaxSize
@@ -124,8 +128,8 @@ func (r *Runner) init() {
 				r.execContext.Workers[i].BucketsWithObject[j] = &BucketWithObject{
 					BucketName: bucketName,
 					ObjectMata: object.NewObjectMeta(
-						r.execContext.NumObj/r.execContext.NumWorker,
-						r.execContext.NumObj/r.execContext.NumWorker*i),
+						r.execContext.NumObj/int64(r.execContext.NumWorker),
+						r.execContext.NumObj/int64(r.execContext.NumWorker)*int64(i)+(int64(r.processID)<<32)),
 				}
 			}
 			r.execContext.Workers[i].client = r.client
@@ -144,26 +148,34 @@ func (r *Runner) init() {
 	}
 }
 
-func (r *Runner) Run() {
+func (r *Runner) Run() error {
 	fmt.Println("Validation start.")
 	if r.profiler {
 		defer profile.Start(profile.ProfilePath(".")).Stop()
 	}
 	wg := &sync.WaitGroup{}
 	now := time.Now()
+	errCh := make(chan error, r.execContext.NumWorker)
+	errOccurred := false
 	for i := 0; i < r.execContext.NumWorker; i++ {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			for time.Since(now).Milliseconds() < r.timeInMs {
+			var err error
+			for !errOccurred && time.Since(now).Milliseconds() < r.timeInMs {
 				operation := r.selectOperation()
 				switch operation {
 				case Put:
-					r.execContext.Workers[workerID].Put()
+					err = r.execContext.Workers[workerID].Put()
 				case Get:
-					r.execContext.Workers[workerID].Get()
+					err = r.execContext.Workers[workerID].Get()
 				case Delete:
-					r.execContext.Workers[workerID].Delete()
+					err = r.execContext.Workers[workerID].Delete()
+				}
+				if err != nil {
+					errCh <- err
+					errOccurred = true
+					break
 				}
 			}
 		}(i)
@@ -171,6 +183,15 @@ func (r *Runner) Run() {
 	wg.Wait()
 	fmt.Println("Validation finished.")
 	r.st.Report()
+
+	// If there are some errors, get the first one only for simplicity.
+	select {
+	case err := <-errCh:
+		return err
+	default:
+	}
+
+	return nil
 }
 
 type Operation int

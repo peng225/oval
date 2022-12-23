@@ -17,11 +17,18 @@ test: $(OVAL)
 
 .PHONY: run
 run: $(OVAL)
-	$(OVAL) -size 4k-16k -time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000 -save test.json
+	$(OVAL) -size 4k-16k -time 5 -num_obj 1024 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000 -save test.json
 	$(OVAL) -time 3 -load test.json
 
+.PHONY: run-multi-process
+run-multi-process: $(OVAL)
+	$(OVAL) -follower -follower_port 8080 &
+	$(OVAL) -follower -follower_port 8081 &
+	sleep 1
+	$(OVAL) -leader -follower_list "http://localhost:8080,http://localhost:8081" -size 4k-16k -time 5 -num_obj 1024 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
+
 .PHONY: start-minio
-start-minio: $(OVAL)
+start-minio:
 	docker run \
 	   -p 9000:9000 \
 	   -p 9090:9090 \

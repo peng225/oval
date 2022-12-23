@@ -8,7 +8,7 @@ import (
 	"github.com/peng225/oval/runner"
 )
 
-func OpeRatioParse(opeRatioStr string) ([]float64, error) {
+func ParseOpeRatio(opeRatioStr string) ([]float64, error) {
 	opeRatioStrs := strings.Split(opeRatioStr, ",")
 	if len(opeRatioStrs) != int(runner.NumOperation) {
 		return nil, fmt.Errorf("invalid ope ratio format %v", opeRatioStr)

@@ -72,12 +72,13 @@ func (s *S3Client) CreateBucket(bucketName string) error {
 	return nil
 }
 
-func (s *S3Client) ClearBucket(bucketName string) error {
+func (s *S3Client) ClearBucket(bucketName, prefix string) error {
 	var continuationToken *string = nil
 	for {
 		listRes, err := s.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
 			Bucket:            &bucketName,
 			ContinuationToken: continuationToken,
+			Prefix:            &prefix,
 		})
 		if err != nil {
 			return err
