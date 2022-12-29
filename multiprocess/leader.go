@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/peng225/oval/runner"
@@ -23,12 +25,29 @@ type StartFollowerParameter struct {
 	TimeInMs  int64
 }
 
+func InitFollower(followerList []string) error {
+	for _, follower := range followerList {
+		path, err := url.JoinPath(follower, "init")
+		if err != nil {
+			return err
+		}
+		resp, err := http.Post(path, "application/octet-stream", nil)
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("invalid status code. StatusCode = %d", resp.StatusCode)
+		}
+	}
+	return nil
+}
+
 func StartFollower(followerList []string,
 	context *runner.ExecutionContext,
 	opeRatios []float64, timeInMs int64) error {
 	for i, follower := range followerList {
 		param := StartFollowerParameter{
-			ID:        i + 1,
+			ID:        i,
 			Context:   *context,
 			OpeRatios: opeRatios,
 			TimeInMs:  timeInMs,
@@ -55,14 +74,55 @@ func StartFollower(followerList []string,
 }
 
 func GetResultFromAllFollower(followerList []string) (bool, string, error) {
-	report := ""
-	successAll := true
+	errCh := make(chan error, len(followerList))
+	reportCh := make(chan string, len(followerList))
+	successAllCh := make(chan bool, len(followerList))
+	canceled := false
+	wg := &sync.WaitGroup{}
+	wg.Add(len(followerList))
 	for _, follower := range followerList {
-		s, r, err := getResultFromFollower(follower)
-		if err != nil {
-			return false, "", err
-		}
-		successAll = successAll && s
+		go func(follower string) {
+			defer wg.Done()
+			success, report, err := getResultFromFollower(follower)
+			if err != nil {
+				if !canceled {
+					canceled = true
+					cancelErr := cancelFollowerWorkload(followerList)
+					if cancelErr != nil {
+						log.Printf("Failed to cancel followers' workload. err: %v\n", cancelErr)
+					}
+				}
+				errCh <- err
+				return
+			}
+			if !success {
+				if !canceled {
+					canceled = true
+					cancelErr := cancelFollowerWorkload(followerList)
+					if cancelErr != nil {
+						log.Fatal(cancelErr)
+					}
+				}
+			}
+			successAllCh <- success
+			reportCh <- report
+		}(follower)
+	}
+	wg.Wait()
+
+	select {
+	case err := <-errCh:
+		return false, "", err
+	default:
+	}
+	close(successAllCh)
+	successAll := true
+	for success := range successAllCh {
+		successAll = successAll && success
+	}
+	close(reportCh)
+	report := ""
+	for r := range reportCh {
 		report += r + "\n"
 	}
 	return successAll, report, nil
@@ -86,7 +146,7 @@ func getResultFromFollower(follower string) (bool, string, error) {
 		} else if resp.StatusCode != http.StatusNoContent {
 			return false, "", fmt.Errorf("invalid status code. StatusCode = %d", resp.StatusCode)
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
@@ -98,19 +158,26 @@ func getResultFromFollower(follower string) (bool, string, error) {
 	return (string(body) == successMessage), report, nil
 }
 
-func StopFollower(followerList []string) error {
+func cancelFollowerWorkload(followerList []string) error {
+	var returnedErr error
 	for _, follower := range followerList {
-		path, err := url.JoinPath(follower, "stop")
+		path, err := url.JoinPath(follower, "cancel")
 		if err != nil {
-			return err
+			log.Println(err.Error())
+			returnedErr = err
+			continue
 		}
-		resp, err := http.Post(path, "application/json", nil)
+		resp, err := http.Post(path, "application/octet-stream", nil)
 		if err != nil {
-			return err
+			log.Println(err.Error())
+			returnedErr = err
+			continue
 		}
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("invalid status code. StatusCode = %d", resp.StatusCode)
+			returnedErr = fmt.Errorf("invalid status code. StatusCode = %d", resp.StatusCode)
+			log.Println(returnedErr.Error())
+			continue
 		}
 	}
-	return nil
+	return returnedErr
 }

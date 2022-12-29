@@ -104,7 +104,6 @@ func (r *Runner) init() {
 				log.Fatal(err)
 			}
 		} else {
-			// In multi-process mode, bucket clear is executed only by the leader.
 			if r.loadFileName == "" {
 				err = r.client.ClearBucket(bucketName, fmt.Sprintf("%s%02x", object.KeyPrefix, r.processID))
 				if err != nil {
@@ -148,7 +147,7 @@ func (r *Runner) init() {
 	}
 }
 
-func (r *Runner) Run() error {
+func (r *Runner) Run(cancel chan struct{}) error {
 	fmt.Println("Validation start.")
 	if r.profiler {
 		defer profile.Start(profile.ProfilePath(".")).Stop()
@@ -163,6 +162,14 @@ func (r *Runner) Run() error {
 			defer wg.Done()
 			var err error
 			for !errOccurred && time.Since(now).Milliseconds() < r.timeInMs {
+				select {
+				case <-cancel:
+					errCh <- errors.New("Workload was canceled.")
+					errOccurred = true
+					return
+				default:
+				}
+
 				operation := r.selectOperation()
 				switch operation {
 				case Put:
@@ -175,7 +182,7 @@ func (r *Runner) Run() error {
 				if err != nil {
 					errCh <- err
 					errOccurred = true
-					break
+					return
 				}
 			}
 		}(i)
@@ -184,7 +191,7 @@ func (r *Runner) Run() error {
 	fmt.Println("Validation finished.")
 	r.st.Report()
 
-	// If there are some errors, get the first one only for simplicity.
+	// If there are some errors, get only the first one for simplicity.
 	select {
 	case err := <-errCh:
 		return err

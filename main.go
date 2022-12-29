@@ -33,7 +33,7 @@ func main() {
 		invalidPortNumber = -1
 	)
 	flag.Int64Var(&numObj, "num_obj", 10, "The maximum number of objects.")
-	flag.IntVar(&numWorker, "num_worker", 1, "The number of workers.")
+	flag.IntVar(&numWorker, "num_worker", 1, "The number of workers per process.")
 	flag.StringVar(&sizePattern, "size", "4k", "The size of object. Should be in the form like \"8k\" or \"4k-2m\". The unit \"g\" or \"G\" is not allowed.")
 	flag.Int64Var(&time, "time", 3, "Time duration in seconds to run the workload.")
 	flag.StringVar(&bucketNamesStr, "bucket", "", "The name list of the buckets. e.g. \"bucket1,bucket2\"")
@@ -112,52 +112,54 @@ func main() {
 	timeInMs := time * 1000
 
 	if leader {
+		err = multiprocess.InitFollower(followerList)
+		if err != nil {
+			log.Fatal(err)
+		}
 		err = multiprocess.StartFollower(followerList, execContext,
 			opeRatios, timeInMs)
 		if err != nil {
 			log.Fatal(err)
 		}
+		log.Println("Sent start requests to all followers.")
 	} else if follower {
 		multiprocess.StartServer(followerPort)
 		// Follower processes do not go beyond this line.
 	}
 
-	var r *runner.Runner
-	if loadFileName == "" {
-		r = runner.NewRunner(execContext, opeRatios, timeInMs, profiler, loadFileName, 0)
-	} else {
-		r = runner.NewRunnerFromLoadFile(loadFileName, opeRatios, timeInMs, profiler)
+	if follower {
+		log.Fatal("Followers must not come here.")
 	}
 
-	// If the process is running as the leader,
-	// it has a responsibility to report the result of all followers
-	// and send stop requests to all followers.
-	// Thus, the process do not exit here even if r.Run() returns error.
-	// Error messages are logged inside of the function.
-	runErr := r.Run()
-	if saveFileName != "" {
-		err := r.SaveContext(saveFileName)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	successAll := (runErr == nil)
 	if leader {
-		successAllFollowers, report, err := multiprocess.GetResultFromAllFollower(followerList)
+		successAll, report, err := multiprocess.GetResultFromAllFollower(followerList)
 		if err != nil {
 			log.Println(err)
 		}
-		successAll = successAll && successAllFollowers
-		log.Print("The report from Followers:\n" + report)
+		log.Print("The report from followers:\n" + report)
 
-		err = multiprocess.StopFollower(followerList)
+		if !successAll {
+			log.Fatal("Some followers' workload failed.")
+		}
+	} else {
+		// The single-process mode
+		var r *runner.Runner
+		if loadFileName == "" {
+			r = runner.NewRunner(execContext, opeRatios, timeInMs, profiler, loadFileName, 0)
+		} else {
+			r = runner.NewRunnerFromLoadFile(loadFileName, opeRatios, timeInMs, profiler)
+		}
+		err = r.Run(nil)
 		if err != nil {
 			log.Fatal(err)
 		}
-	}
 
-	if !successAll {
-		log.Fatal("FAILED!")
+		if saveFileName != "" {
+			err := r.SaveContext(saveFileName)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+
 	}
 }
