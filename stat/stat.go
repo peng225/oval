@@ -1,7 +1,7 @@
 package stat
 
 import (
-	"fmt"
+	"log"
 	"sync/atomic"
 )
 
@@ -29,9 +29,9 @@ func (st *Stat) AddDeleteCount() {
 }
 
 func (st *Stat) Report() {
-	fmt.Println("Statistics report.")
-	fmt.Printf("put count: %d\n", st.putCount)
-	fmt.Printf("get count: %d\n", st.getCount)
-	fmt.Printf("get (for validation) count: %d\n", st.getForValidCount)
-	fmt.Printf("delete count: %d\n", st.deleteCount)
+	log.Println("Statistics report.")
+	log.Printf("put count: %d\n", st.putCount)
+	log.Printf("get count: %d\n", st.getCount)
+	log.Printf("get (for validation) count: %d\n", st.getForValidCount)
+	log.Printf("delete count: %d\n", st.deleteCount)
 }

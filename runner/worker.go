@@ -30,7 +30,7 @@ func (v *Worker) ShowInfo() {
 	// Only show the key range of the first bucket
 	// because key range is the same for all buckets.
 	head, tail := v.BucketsWithObject[0].ObjectMata.GetHeadAndTailKey()
-	fmt.Printf("Worker ID = %#x, Key = [%s, %s]\n", v.id, head, tail)
+	log.Printf("Worker ID = %#x, Key = [%s, %s]\n", v.id, head, tail)
 }
 
 func (v *Worker) Put() error {
