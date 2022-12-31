@@ -54,7 +54,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	opeRatios, err := argparser.ParseOpeRatio(opeRatioStr)
+	opeRatio, err := argparser.ParseOpeRatio(opeRatioStr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func main() {
 			log.Fatal(err)
 		}
 		err = multiprocess.StartFollower(followerList, execContext,
-			opeRatios, timeInMs)
+			opeRatio, timeInMs)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -145,9 +145,9 @@ func main() {
 		// The single-process mode
 		var r *runner.Runner
 		if loadFileName == "" {
-			r = runner.NewRunner(execContext, opeRatios, timeInMs, profiler, loadFileName, 0)
+			r = runner.NewRunner(execContext, opeRatio, timeInMs, profiler, loadFileName, 0)
 		} else {
-			r = runner.NewRunnerFromLoadFile(loadFileName, opeRatios, timeInMs, profiler)
+			r = runner.NewRunnerFromLoadFile(loadFileName, opeRatio, timeInMs, profiler)
 		}
 		err = r.Run(nil)
 		if err != nil {

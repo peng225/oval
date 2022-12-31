@@ -34,7 +34,7 @@ type ExecutionContext struct {
 
 type Runner struct {
 	execContext  *ExecutionContext
-	opeRatios    []float64
+	opeRatio     []float64
 	timeInMs     int64
 	profiler     bool
 	loadFileName string
@@ -43,11 +43,11 @@ type Runner struct {
 	processID    int
 }
 
-func NewRunner(execContext *ExecutionContext, opeRatios []float64, timeInMs int64,
+func NewRunner(execContext *ExecutionContext, opeRatio []float64, timeInMs int64,
 	profiler bool, loadFileName string, processID int) *Runner {
 	runner := &Runner{
 		execContext:  execContext,
-		opeRatios:    opeRatios,
+		opeRatio:     opeRatio,
 		timeInMs:     timeInMs,
 		profiler:     profiler,
 		loadFileName: loadFileName,
@@ -57,7 +57,7 @@ func NewRunner(execContext *ExecutionContext, opeRatios []float64, timeInMs int6
 	return runner
 }
 
-func NewRunnerFromLoadFile(loadFileName string, opeRatios []float64, timeInMs int64, profiler bool) *Runner {
+func NewRunnerFromLoadFile(loadFileName string, opeRatio []float64, timeInMs int64, profiler bool) *Runner {
 	if loadFileName == "" {
 		log.Fatal("loadFileName is empty.")
 	}
@@ -66,7 +66,7 @@ func NewRunnerFromLoadFile(loadFileName string, opeRatios []float64, timeInMs in
 		log.Fatal(err)
 	}
 	ec := loadSavedContext(loadFileName)
-	return NewRunner(ec, opeRatios, timeInMs, profiler, loadFileName, 0)
+	return NewRunner(ec, opeRatio, timeInMs, profiler, loadFileName, 0)
 }
 
 func loadSavedContext(loadFileName string) *ExecutionContext {
@@ -213,9 +213,9 @@ const (
 func (r *Runner) selectOperation() Operation {
 	rand.Seed(time.Now().UnixNano())
 	randVal := rand.Float64()
-	if randVal < r.opeRatios[0] {
+	if randVal < r.opeRatio[0] {
 		return Put
-	} else if randVal < r.opeRatios[0]+r.opeRatios[1] {
+	} else if randVal < r.opeRatio[0]+r.opeRatio[1] {
 		return Get
 	} else {
 		return Delete

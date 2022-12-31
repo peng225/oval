@@ -88,7 +88,7 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 	state = running
 
 	go func() {
-		run = runner.NewRunner(&param.Context, param.OpeRatios, param.TimeInMs, false, "", param.ID)
+		run = runner.NewRunner(&param.Context, param.OpeRatio, param.TimeInMs, false, "", param.ID)
 		runnerErr = run.Run(cancel)
 		mu.Lock()
 		defer mu.Unlock()
