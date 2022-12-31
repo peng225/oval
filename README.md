@@ -1,8 +1,10 @@
-# What is this
+# Oval
+
+## What is Oval?
 
 Oval is a data validation tool for S3 compatible object storages.
 
-# Motivation
+## Motivation
 
 Storage systems can hardly achieve 100% of data integrity. 
 Though there is a lot of possible cause of data corruption, the data corruption due to software bugs is catastrophic. So continuous efforts to reduce the possibility of data corruption are required.   
@@ -60,12 +62,20 @@ Usage of ./oval:
         The name list of the buckets. e.g. "bucket1,bucket2"
   -endpoint string
         The endpoint URL and TCP port number. e.g. "http://127.0.0.1:9000"
+  -follower
+        The process run as a follower.
+  -follower_list string
+        [For leader] The follower list.
+  -follower_port int
+        [For follower] TCP port number to which a follower listens. (default -1)
+  -leader
+        The process run as the leader.
   -load string
         File name to load the execution context.
   -num_obj int
         The maximum number of objects. (default 10)
   -num_worker int
-        The number of workers. (default 1)
+        The number of workers per process. (default 1)
   -ope_ratio string
         The ration of put, get and delete operations. e.g. "2,3,1" (default "1,1,1")
   -profiler
@@ -78,9 +88,9 @@ Usage of ./oval:
         Time duration in seconds to run the workload. (default 3)
 ```
 
-### Example
+## Example
 
-#### Success case
+#### Success case (the single-process mode)
 
 ```
 $ ./oval -size 4k-16k -time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000 
@@ -97,7 +107,7 @@ get (for validation) count: 1268
 delete count: 584
 ```
 
-#### Data corruption case
+#### Data corruption case (the single-process mode)
 
 ```
 $ ./oval -size 4k-16k -time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
@@ -132,3 +142,107 @@ worker.go:91: Data validation error occurred after put.
 000000e0  e0 e1 e2 e3 e4 e5 e6 e7  e8 e9 ea eb ec ed ee ef  |................|
 000000f0  f0 f1 f2 f3 f4 f5 f6 f7  f8 f9 fa fb fc fd fe ff  |................|
 ```
+
+#### Success case (the multi-process mode)
+
+#### follower1
+
+```
+./oval --follower --follower_port 8080
+follower.go:41: Start server. port = 8080
+follower.go:46: Received a init request.
+follower.go:62: Received a start request.
+follower.go:119: ID: 0
+follower.go:120: Context: {http://localhost:9000 [test-bucket] 1000 4 4096 16384 0 []}
+follower.go:121: OpeRatio: [0.3333333333333333 0.3333333333333333 0.3333333333333333]
+follower.go:122: TimeInMs: 5000
+Worker ID = 0x8c23, Key = [ov0000000000, ov00000000f9]
+Worker ID = 0x8c24, Key = [ov00000000fa, ov00000001f3]
+Worker ID = 0x8c25, Key = [ov00000001f4, ov00000002ed]
+Worker ID = 0x8c26, Key = [ov00000002ee, ov00000003e7]
+Validation start.
+Validation finished.
+Statistics report.
+put count: 453
+get count: 436
+get (for validation) count: 866
+delete count: 395
+```
+
+#### follower2
+
+```
+./oval --follower --follower_port 8081
+follower.go:41: Start server. port = 8081
+follower.go:46: Received a init request.
+follower.go:62: Received a start request.
+follower.go:119: ID: 1
+follower.go:120: Context: {http://localhost:9000 [test-bucket] 1000 4 4096 16384 0 []}
+follower.go:121: OpeRatio: [0.3333333333333333 0.3333333333333333 0.3333333333333333]
+follower.go:122: TimeInMs: 5000
+Worker ID = 0x5c10, Key = [ov0100000000, ov01000000f9]
+Worker ID = 0x5c11, Key = [ov01000000fa, ov01000001f3]
+Worker ID = 0x5c12, Key = [ov01000001f4, ov01000002ed]
+Worker ID = 0x5c13, Key = [ov01000002ee, ov01000003e7]
+Validation start.
+Validation finished.
+Statistics report.
+put count: 445
+get count: 349
+get (for validation) count: 869
+delete count: 418
+```
+
+#### leader
+
+```
+$ ./oval -leader -follower_list http://localhost:8080,http://localhost:8081 -size 4k-16k -time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
+main.go:124: Sent start requests to all followers.
+main.go:139: The report from followers:
+follower: http://localhost:8081
+OK
+follower: http://localhost:8080
+OK
+```
+
+## Execution mode
+
+Oval has two execution modes; the single-process mode and the multi-process mode. In the single-process mode, Oval runs as the single-process in a single node. That is the easiest way to use Oval.
+
+However, in some test scenarios, a single process mode is insufficient. Bugs in storage systems are often revealed when some error happens in the storage system. One of the most common forms of error is timeout. When a timeout occurs for some internal process in the storage systems, it must be handled properly to clean things up. These error handling logics are error-prone.
+
+Another common source of bugs is concurrency control. For example, processing many client requests may sometimes require a locking mechanism or other concurrent programming techniques. They have been producing many hard-to-find bugs for a long history.
+
+One of the best ways to make these things happen artificially and find hidden bugs is to stress the storage system. The multi-process mode of Oval was developed for this purpose.
+
+The component diagram of the multi-process mode is as follows.
+
+```mermaid
+flowchart TB
+    Leader -- Start workload/Get the result ---> HTTPserver1[HTTP server1]
+    Leader -- Start workload/Get the result ---> HTTPserver2[HTTP server2]
+
+    subgraph Leader_process
+      Leader
+    end
+
+    subgraph Follower process1
+      direction TB
+      HTTPserver1 -- Start workload/Get the result -->runner1
+      runner1 --> worker1-1
+      runner1 --> worker1-2
+    end
+
+    subgraph Follower process2
+      direction TB
+      HTTPserver2 -- Start workload/Get the result --> runner2
+      runner2 --> worker2-1
+      runner2 --> worker2-2
+    end
+
+    worker1-1 -- Object I/O --> storage[S3-compatible storage]
+    worker1-2 -- Object I/O --> storage[S3-compatible storage]
+    worker2-1 -- Object I/O --> storage[S3-compatible storage]
+    worker2-2 -- Object I/O --> storage[S3-compatible storage]
+```
+

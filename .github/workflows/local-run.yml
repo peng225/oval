@@ -30,4 +30,5 @@ jobs:
         make start-minio
         make run
         make run-multi-process
+        make run-leader
         make stop-minio

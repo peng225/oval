@@ -4,6 +4,8 @@ IMAGE_NAME ?= ghcr.io/peng225/oval
 GO_FILES:=$(shell find . -type f -name '*.go' -print)
 MINIO_DATAPATH:=~/minio/data
 
+EXEC_TIME?=5
+
 $(OVAL): $(GO_FILES)
 	CGO_ENABLED=0 go build -o $@ -v
 
@@ -17,15 +19,24 @@ test: $(OVAL)
 
 .PHONY: run
 run: $(OVAL)
-	$(OVAL) -size 4k-16k -time 5 -num_obj 1024 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000 -save test.json
+	$(OVAL) -size 4k-16k -time $(EXEC_TIME) -num_obj 1024 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000 -save test.json
 	$(OVAL) -time 3 -load test.json
 
 .PHONY: run-multi-process
 run-multi-process: $(OVAL)
+	make run-followers
+	sleep 1
+	make run-leader
+
+.PHONY: run-leader
+run-leader: $(OVAL)
+	$(OVAL) -leader -follower_list "http://localhost:8080,http://localhost:8081,http://localhost:8082" -size 4k-16k -time $(EXEC_TIME) -num_obj 1024 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
+
+.PHONY: run-followers
+run-followers: $(OVAL)
 	$(OVAL) -follower -follower_port 8080 &
 	$(OVAL) -follower -follower_port 8081 &
-	sleep 1
-	$(OVAL) -leader -follower_list "http://localhost:8080,http://localhost:8081" -size 4k-16k -time 5 -num_obj 1024 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
+	$(OVAL) -follower -follower_port 8082 &
 
 .PHONY: start-minio
 start-minio:
