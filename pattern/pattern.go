@@ -151,7 +151,7 @@ func validDataUnit(unitCount, workerID int, expectedBucketName string, obj *obje
 	// Skip the unix time area.
 
 	if errMsg != "" {
-		errMsg += dump(hex.Dump(data)) + "\n"
+		errMsg += dump(hex.Dump(data))
 		return errors.New(errMsg)
 	}
 

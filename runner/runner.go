@@ -164,7 +164,9 @@ func (r *Runner) Run(cancel chan struct{}) error {
 			for !errOccurred && time.Since(now).Milliseconds() < r.timeInMs {
 				select {
 				case <-cancel:
-					errCh <- errors.New("Workload was canceled.")
+					errMsg := "Workload was canceled."
+					log.Println(errMsg)
+					errCh <- errors.New(errMsg)
 					errOccurred = true
 					return
 				default:

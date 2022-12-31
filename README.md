@@ -2,7 +2,7 @@
 
 ## What is Oval?
 
-Oval is a data validation tool for S3 compatible object storages.
+Oval is a data validation tool for S3-compatible object storages.
 
 ## Motivation
 
@@ -56,36 +56,59 @@ and you can investigate the root cause of the data corruption using the dump dat
 
 ```
 $ make
-$ ./oval -h
-Usage of ./oval:
-  -bucket string
-        The name list of the buckets. e.g. "bucket1,bucket2"
-  -endpoint string
-        The endpoint URL and TCP port number. e.g. "http://127.0.0.1:9000"
-  -follower
-        The process run as a follower.
-  -follower_list string
-        [For leader] The follower list.
-  -follower_port int
-        [For follower] TCP port number to which a follower listens. (default -1)
-  -leader
-        The process run as the leader.
-  -load string
-        File name to load the execution context.
-  -num_obj int
-        The maximum number of objects. (default 10)
-  -num_worker int
-        The number of workers per process. (default 1)
-  -ope_ratio string
-        The ration of put, get and delete operations. e.g. "2,3,1" (default "1,1,1")
-  -profiler
-        Enable profiler.
-  -save string
-        File name to save the execution context.
-  -size string
-        The size of object. Should be in the form like "8k" or "4k-2m". The unit "g" or "G" is not allowed. (default "4k")
-  -time int
-        Time duration in seconds to run the workload. (default 3)
+$ ./oval -h         
+A data validation tool for S3-compatible object storages.
+If no subcommands are specified, Oval runs in the single-process mode.
+
+Usage:
+  oval [flags]
+  oval [command]
+
+Available Commands:
+  completion  Generate the autocompletion script for the specified shell
+  follower    Start a follower of the multi-process mode
+  help        Help about any command
+  leader      Start the leader of the multi-process mode
+
+Flags:
+      --bucket strings     The name list of the buckets. e.g. "bucket1,bucket2"
+      --endpoint string    The endpoint URL and TCP port number. e.g. "http://127.0.0.1:9000"
+  -h, --help               help for oval
+      --load string        File name to load the execution context.
+      --num_obj int        The maximum number of objects. (default 10)
+      --num_worker int     The number of workers per process. (default 1)
+      --ope_ratio string   The ration of put, get and delete operations. e.g. "2,3,1" (default "1,1,1")
+      --profiler           Enable profiler.
+      --save string        File name to save the execution context.
+      --size string        The size of object. Should be in the form like "8k" or "4k-2m". The unit "g" or "G" is not allowed. (default "4k")
+      --time duration      Time duration for run the workload. (default 3s)
+
+Use "oval [command] --help" for more information about a command.
+$ ./oval leader -h  
+Start the leader of the multi-process mode.
+
+Usage:
+  oval leader [flags]
+
+Flags:
+      --bucket strings          The name list of the buckets. e.g. "bucket1,bucket2"
+      --endpoint string         The endpoint URL and TCP port number. e.g. "http://127.0.0.1:9000"
+      --follower_list strings   The follower list.
+  -h, --help                    help for leader
+      --num_obj int             The maximum number of objects. (default 10)
+      --num_worker int          The number of workers per process. (default 1)
+      --ope_ratio string        The ration of put, get and delete operations. e.g. "2,3,1" (default "1,1,1")
+      --size string             The size of object. Should be in the form like "8k" or "4k-2m". The unit "g" or "G" is not allowed. (default "4k")
+      --time duration           Time duration for run the workload. (default 3s)
+$ ./oval follower -h
+Start a follower of the multi-process mode.
+
+Usage:
+  oval follower [flags]
+
+Flags:
+      --follower_port int   TCP port number to which the follower listens. (default -1)
+  -h, --help                help for follower
 ```
 
 ## Example
@@ -93,38 +116,38 @@ Usage of ./oval:
 #### Success case (the single-process mode)
 
 ```
-$ ./oval -size 4k-16k -time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000 
-Worker ID = 0x5965, Key = [ov0000000000, ov0000000249]
-Worker ID = 0x5966, Key = [ov0000000250, ov0000000499]
-Worker ID = 0x5967, Key = [ov0000000500, ov0000000749]
-Worker ID = 0x5968, Key = [ov0000000750, ov0000000999]
-Validation start.
-Validation finished.
-Statistics report.
-put count: 648
-get count: 617
-get (for validation) count: 1268
-delete count: 584
+$ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000 --save test.json
+2022/12/31 21:31:04 worker.go:33: Worker ID = 0x1e77, Key = [ov0000000000, ov00000000ff]
+2022/12/31 21:31:04 worker.go:33: Worker ID = 0x1e78, Key = [ov0000000100, ov00000001ff]
+2022/12/31 21:31:04 worker.go:33: Worker ID = 0x1e79, Key = [ov0000000200, ov00000002ff]
+2022/12/31 21:31:04 worker.go:33: Worker ID = 0x1e7a, Key = [ov0000000300, ov00000003ff]
+2022/12/31 21:31:04 runner.go:151: Validation start.
+2022/12/31 21:31:09 runner.go:191: Validation finished.
+2022/12/31 21:31:09 stat.go:32: Statistics report.
+2022/12/31 21:31:09 stat.go:33: put count: 670
+2022/12/31 21:31:09 stat.go:34: get count: 609
+2022/12/31 21:31:09 stat.go:35: get (for validation) count: 1257
+2022/12/31 21:31:09 stat.go:36: delete count: 575
 ```
 
 #### Data corruption case (the single-process mode)
 
 ```
-$ ./oval -size 4k-16k -time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
-Worker ID = 0xd33, Key = [ov0000000000, ov0000000249]
-Worker ID = 0xd34, Key = [ov0000000250, ov0000000499]
-Worker ID = 0xd35, Key = [ov0000000500, ov0000000749]
-Worker ID = 0xd36, Key = [ov0000000750, ov0000000999]
-Validation start.
-worker.go:91: Data validation error occurred after put.
+$ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000 --save test.json
+2023/01/01 14:54:41 worker.go:33: Worker ID = 0x2009, Key = [ov0000000000, ov00000000ff]
+2023/01/01 14:54:41 worker.go:33: Worker ID = 0x200a, Key = [ov0000000100, ov00000001ff]
+2023/01/01 14:54:41 worker.go:33: Worker ID = 0x200b, Key = [ov0000000200, ov00000002ff]
+2023/01/01 14:54:41 worker.go:33: Worker ID = 0x200c, Key = [ov0000000300, ov00000003ff]
+2023/01/01 14:54:41 runner.go:151: Validation start.
+2023/01/01 14:54:41 worker.go:101: Data validation error occurred after put.
 - WriteCount is wrong. (expected = "2", actual = "1")
 - OffsetInObject is wrong. (expected = "0", actual = "256")
 00000000  74 65 73 74 2d 62 75 63  6b 65 74 20 20 20 20 20  |test-bucket     |
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ bucket name
-00000010  6f 76 30 30 30 30 30 30  30 30 30 38 01 00 00 00  |ov0000000008....|
+00000010  6f 76 30 30 30 30 30 30  30 31 66 34 01 00 00 00  |ov00000001f4....|
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ key name
                                                ^^^^^^^^^^^ write count
-00000020  00 01 00 00 33 0d 00 00  8f 12 45 e1 d7 ef 05 00  |....3.....E.....|
+00000020  00 01 00 00 0a 20 00 00  18 a1 8d 78 2d f1 05 00  |..... .....x-...|
           ^^^^^^^^^^^ byte offset in this object
                       ^^^^^^^^^^^ worker ID
                                    ^^^^^^^^^^^^^^^^^^^^^^^ unix time (micro sec)
@@ -141,6 +164,14 @@ worker.go:91: Data validation error occurred after put.
 000000d0  d0 d1 d2 d3 d4 d5 d6 d7  d8 d9 da db dc dd de df  |................|
 000000e0  e0 e1 e2 e3 e4 e5 e6 e7  e8 e9 ea eb ec ed ee ef  |................|
 000000f0  f0 f1 f2 f3 f4 f5 f6 f7  f8 f9 fa fb fc fd fe ff  |................|
+
+2023/01/01 14:54:41 runner.go:193: Validation finished.
+2023/01/01 14:54:41 stat.go:32: Statistics report.
+2023/01/01 14:54:41 stat.go:33: put count: 93
+2023/01/01 14:54:41 stat.go:34: get count: 66
+2023/01/01 14:54:41 stat.go:35: get (for validation) count: 157
+2023/01/01 14:54:41 stat.go:36: delete count: 64
+2023/01/01 14:54:41 root.go:52: r.Run() failed.
 ```
 
 #### Success case (the multi-process mode)
@@ -148,60 +179,60 @@ worker.go:91: Data validation error occurred after put.
 #### follower1
 
 ```
-./oval --follower --follower_port 8080
-follower.go:41: Start server. port = 8080
-follower.go:46: Received a init request.
-follower.go:62: Received a start request.
-follower.go:119: ID: 0
-follower.go:120: Context: {http://localhost:9000 [test-bucket] 1000 4 4096 16384 0 []}
-follower.go:121: OpeRatio: [0.3333333333333333 0.3333333333333333 0.3333333333333333]
-follower.go:122: TimeInMs: 5000
-Worker ID = 0x8c23, Key = [ov0000000000, ov00000000f9]
-Worker ID = 0x8c24, Key = [ov00000000fa, ov00000001f3]
-Worker ID = 0x8c25, Key = [ov00000001f4, ov00000002ed]
-Worker ID = 0x8c26, Key = [ov00000002ee, ov00000003e7]
-Validation start.
-Validation finished.
-Statistics report.
-put count: 453
-get count: 436
-get (for validation) count: 866
-delete count: 395
+$ ./oval follower --follower_port 8080
+2022/12/31 21:31:47 follower.go:41: Start server. port = 8080
+2022/12/31 21:32:04 follower.go:46: Received a init request.
+2022/12/31 21:32:04 follower.go:62: Received a start request.
+2022/12/31 21:32:04 follower.go:119: ID: 0
+2022/12/31 21:32:04 follower.go:120: Context: {http://localhost:9000 [test-bucket test-bucket2] 1024 4 4096 16384 0 []}
+2022/12/31 21:32:04 follower.go:121: OpeRatio: [0.3333333333333333 0.3333333333333333 0.3333333333333333]
+2022/12/31 21:32:04 follower.go:122: TimeInMs: 5000
+2022/12/31 21:32:05 worker.go:33: Worker ID = 0xd681, Key = [ov0000000000, ov00000000ff]
+2022/12/31 21:32:05 worker.go:33: Worker ID = 0xd682, Key = [ov0000000100, ov00000001ff]
+2022/12/31 21:32:05 worker.go:33: Worker ID = 0xd683, Key = [ov0000000200, ov00000002ff]
+2022/12/31 21:32:05 worker.go:33: Worker ID = 0xd684, Key = [ov0000000300, ov00000003ff]
+2022/12/31 21:32:05 runner.go:151: Validation start.
+2022/12/31 21:32:10 runner.go:191: Validation finished.
+2022/12/31 21:32:10 stat.go:32: Statistics report.
+2022/12/31 21:32:10 stat.go:33: put count: 479
+2022/12/31 21:32:10 stat.go:34: get count: 393
+2022/12/31 21:32:10 stat.go:35: get (for validation) count: 892
+2022/12/31 21:32:10 stat.go:36: delete count: 399
 ```
 
 #### follower2
 
 ```
-./oval --follower --follower_port 8081
-follower.go:41: Start server. port = 8081
-follower.go:46: Received a init request.
-follower.go:62: Received a start request.
-follower.go:119: ID: 1
-follower.go:120: Context: {http://localhost:9000 [test-bucket] 1000 4 4096 16384 0 []}
-follower.go:121: OpeRatio: [0.3333333333333333 0.3333333333333333 0.3333333333333333]
-follower.go:122: TimeInMs: 5000
-Worker ID = 0x5c10, Key = [ov0100000000, ov01000000f9]
-Worker ID = 0x5c11, Key = [ov01000000fa, ov01000001f3]
-Worker ID = 0x5c12, Key = [ov01000001f4, ov01000002ed]
-Worker ID = 0x5c13, Key = [ov01000002ee, ov01000003e7]
-Validation start.
-Validation finished.
-Statistics report.
-put count: 445
-get count: 349
-get (for validation) count: 869
-delete count: 418
+$ ./oval follower --follower_port 8081
+2022/12/31 21:31:53 follower.go:41: Start server. port = 8081
+2022/12/31 21:32:04 follower.go:46: Received a init request.
+2022/12/31 21:32:04 follower.go:62: Received a start request.
+2022/12/31 21:32:04 follower.go:119: ID: 1
+2022/12/31 21:32:04 follower.go:120: Context: {http://localhost:9000 [test-bucket test-bucket2] 1024 4 4096 16384 0 []}
+2022/12/31 21:32:04 follower.go:121: OpeRatio: [0.3333333333333333 0.3333333333333333 0.3333333333333333]
+2022/12/31 21:32:04 follower.go:122: TimeInMs: 5000
+2022/12/31 21:32:05 worker.go:33: Worker ID = 0x6518, Key = [ov0100000000, ov01000000ff]
+2022/12/31 21:32:05 worker.go:33: Worker ID = 0x6519, Key = [ov0100000100, ov01000001ff]
+2022/12/31 21:32:05 worker.go:33: Worker ID = 0x651a, Key = [ov0100000200, ov01000002ff]
+2022/12/31 21:32:05 worker.go:33: Worker ID = 0x651b, Key = [ov0100000300, ov01000003ff]
+2022/12/31 21:32:05 runner.go:151: Validation start.
+2022/12/31 21:32:10 runner.go:191: Validation finished.
+2022/12/31 21:32:10 stat.go:32: Statistics report.
+2022/12/31 21:32:10 stat.go:33: put count: 466
+2022/12/31 21:32:10 stat.go:34: get count: 430
+2022/12/31 21:32:10 stat.go:35: get (for validation) count: 886
+2022/12/31 21:32:10 stat.go:36: delete count: 416
 ```
 
 #### leader
 
 ```
-$ ./oval -leader -follower_list http://localhost:8080,http://localhost:8081 -size 4k-16k -time 5 -num_obj 1000 -num_worker 4 -bucket test-bucket -endpoint http://localhost:9000
-main.go:124: Sent start requests to all followers.
-main.go:139: The report from followers:
-follower: http://localhost:8081
-OK
+$ ./oval leader --follower_list "http://localhost:8080,http://localhost:8081" --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000
+2022/12/31 21:32:04 leader.go:34: Sent start requests to all followers.
+2022/12/31 21:32:10 leader.go:40: The report from followers:
 follower: http://localhost:8080
+OK
+follower: http://localhost:8081
 OK
 ```
 
