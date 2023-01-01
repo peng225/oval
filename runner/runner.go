@@ -225,20 +225,6 @@ func (r *Runner) selectOperation() Operation {
 }
 
 func (r *Runner) SaveContext(saveFileName string) error {
-	// Check if a file with the name "saveFileName" exists.
-	_, err := os.Stat(saveFileName)
-	if err == nil {
-		log.Println(`A file "` + saveFileName + `" already exists. Are you sure to overwrite it? (y/N)`)
-		var userInput string
-		_, err = fmt.Scan(&userInput)
-		if err != nil {
-			return err
-		}
-		if userInput != "y" {
-			log.Println("Saving file canceled.")
-			return nil
-		}
-	}
 	f, err := os.Create(saveFileName)
 	if err != nil {
 		return err

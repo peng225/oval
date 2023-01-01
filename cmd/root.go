@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -38,13 +39,29 @@ If no subcommands are specified, Oval runs in the single-process mode.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		handleCommonFlags()
 
+		// Check if a file with the name "saveFileName" exists.
+		_, err := os.Stat(saveFileName)
+		if err == nil {
+			fmt.Print(`A file "` + saveFileName + `" already exists. Are you sure to overwrite it? (y/N) `)
+			var userInput string
+			_, err = fmt.Scan(&userInput)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if userInput != "y" {
+				saveFileName = ""
+				log.Println("Execution was canceled.")
+				return
+			}
+		}
+
 		var r *runner.Runner
 		if loadFileName == "" {
 			r = runner.NewRunner(execContext, opeRatio, execTime.Milliseconds(), profiler, loadFileName, 0)
 		} else {
 			r = runner.NewRunnerFromLoadFile(loadFileName, opeRatio, execTime.Milliseconds(), profiler)
 		}
-		err := r.Run(nil)
+		err = r.Run(nil)
 		if err != nil {
 			log.Fatal("r.Run() failed.")
 		}
