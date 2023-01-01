@@ -30,7 +30,7 @@ func (v *Worker) ShowInfo() {
 	// Only show the key range of the first bucket
 	// because key range is the same for all buckets.
 	head, tail := v.BucketsWithObject[0].ObjectMata.GetHeadAndTailKey()
-	fmt.Printf("Worker ID = %#x, Key = [%s, %s]\n", v.id, head, tail)
+	log.Printf("Worker ID = %#x, Key = [%s, %s]\n", v.id, head, tail)
 }
 
 func (v *Worker) Put() error {
@@ -90,12 +90,9 @@ func (v *Worker) Put() error {
 		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
 			err = fmt.Errorf("Object lost after put.\nerr: %w\nobj: %v", err, obj)
-			log.Println(err.Error())
-			return err
-		} else {
-			log.Println(err.Error())
-			return err
 		}
+		log.Println(err.Error())
+		return err
 	}
 	defer getAfterBody.Close()
 	err = pattern.Valid(v.id, bucketWithObj.BucketName, obj, getAfterBody)
@@ -121,12 +118,9 @@ func (v *Worker) Get() error {
 		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
 			err = fmt.Errorf("Object lost before get.\nerr: %w\nobj: %v", err, obj)
-			log.Println(err.Error())
-			return err
-		} else {
-			log.Println(err.Error())
-			return err
 		}
+		log.Println(err.Error())
+		return err
 	}
 	defer body.Close()
 	err = pattern.Valid(v.id, bucketWithObj.BucketName, obj, body)
@@ -152,12 +146,9 @@ func (v *Worker) Delete() error {
 		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
 			err = fmt.Errorf("Object lost before delete.\nerr: %w\nobj: %v", err, obj)
-			log.Println(err.Error())
-			return err
-		} else {
-			log.Println(err.Error())
-			return err
 		}
+		log.Println(err.Error())
+		return err
 	}
 	defer getBeforeBody.Close()
 	err = pattern.Valid(v.id, bucketWithObj.BucketName, obj, getBeforeBody)

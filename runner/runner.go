@@ -94,12 +94,12 @@ func (r *Runner) init() {
 				if r.loadFileName != "" {
 					log.Fatal("HeadBucket failed despite \"load\" parameter was set.")
 				}
-				fmt.Println("Bucket \"" + bucketName + "\" not found. Creating...")
+				log.Println("Bucket \"" + bucketName + "\" not found. Creating...")
 				err = r.client.CreateBucket(bucketName)
 				if err != nil {
 					log.Fatal(err)
 				}
-				fmt.Println("Bucket created successfully.")
+				log.Println("Bucket created successfully.")
 			} else {
 				log.Fatal(err)
 			}
@@ -148,7 +148,7 @@ func (r *Runner) init() {
 }
 
 func (r *Runner) Run(cancel chan struct{}) error {
-	fmt.Println("Validation start.")
+	log.Println("Validation start.")
 	if r.profiler {
 		defer profile.Start(profile.ProfilePath(".")).Stop()
 	}
@@ -164,7 +164,9 @@ func (r *Runner) Run(cancel chan struct{}) error {
 			for !errOccurred && time.Since(now).Milliseconds() < r.timeInMs {
 				select {
 				case <-cancel:
-					errCh <- errors.New("Workload was canceled.")
+					errMsg := "Workload was canceled."
+					log.Println(errMsg)
+					errCh <- errors.New(errMsg)
 					errOccurred = true
 					return
 				default:
@@ -188,7 +190,7 @@ func (r *Runner) Run(cancel chan struct{}) error {
 		}(i)
 	}
 	wg.Wait()
-	fmt.Println("Validation finished.")
+	log.Println("Validation finished.")
 	r.st.Report()
 
 	// If there are some errors, get only the first one for simplicity.
@@ -226,14 +228,14 @@ func (r *Runner) SaveContext(saveFileName string) error {
 	// Check if a file with the name "saveFileName" exists.
 	_, err := os.Stat(saveFileName)
 	if err == nil {
-		fmt.Println(`A file "` + saveFileName + `" already exists. Are you sure to overwrite it? (y/N)`)
+		log.Println(`A file "` + saveFileName + `" already exists. Are you sure to overwrite it? (y/N)`)
 		var userInput string
 		_, err = fmt.Scan(&userInput)
 		if err != nil {
 			return err
 		}
 		if userInput != "y" {
-			fmt.Println("Saving file canceled.")
+			log.Println("Saving file canceled.")
 			return nil
 		}
 	}
