@@ -6,35 +6,39 @@ Oval is a data validation tool for S3-compatible object storages.
 
 ## Motivation
 
-Storage systems can hardly achieve 100% of data integrity. 
-Though there is a lot of possible cause of data corruption, the data corruption due to software bugs is catastrophic. So continuous efforts to reduce the possibility of data corruption are required.   
+Storage systems can hardly achieve 100% of data integrity. Data is usually damaged by two factors; failures and software bugs.
+For failures, there are many techniques to reduce the impact, e.g. RAID, replication, erasure coding, backup. Though it is impossible to protect storage systems perfectly from data loss due to failures, the impact of failures can be controlled by paying the cost of data redundancy.
 
-Some storage systems have an internal defense mechanism against data corruption. However, it is sometimes useless when the data get corrupted in undetectable ways, or if there are bugs in the defense mechanism itself. In that case, data will get corrupted silently.
+On the other hand, data corruption due to software bugs is unacceptable. It is hard to estimate the damage of data loss due to bugs because bugs can cause every bad thing.
+For example, some bugs may destroy all redundant data copies. Unfortunately, no storage system is free from software bugs, but continuous efforts to reduce data corruption bugs are meaningful.
 
-So, it is important for storage system's developers and users
-to check if their storage systems have enough data integrity from the storage user's point of view.
-People sometimes check data integrity by the following steps.
+Some storage systems have internal defense mechanisms against data corruption, e.g. periodic CRC check, synchronous T10 DIF check.
+However, these mechanisms can never be perfect solutions for two reasons. First, they have a theoretical limit on the ability to detect data corruption.
+Secondly, these mechanisms themselves may also have bugs since they are also implemented by humans.
 
-1. Generate the data to be written.
-2. Write the data which is generated in step1.
-3. Read the just-written data, and compare it with the original data which is generated in the step1.
+So, what should we do? One possible solution is to test storage systems in an end-to-end manner.
+The simplest way to check data integrity is as follows.
+
+1. Generate the random data.
+2. Write the data which is generated in step 1.
+3. Read the just-written data, and compare it with the original data which is generated in step 1.
 
 However, this procedure is not enough;
-There may be data destroying bugs in the background data rebalancing process, or data may get corrupted by the concurrent data write, etc.
+There may be data-destroying bugs in the background data balancing process, or data may get corrupted by the concurrent data write, etc.
 Generally speaking, those kinds of bugs are hard to detect.
 
-To reveal the root cause of those difficult data corruption bugs,
-it is important to know when the data was destroyed and which process caused the problem.
-For block storage, there are some brilliant tools (cf. [vdbench](https://www.oracle.com/technetwork/server-storage/vdbench-1901683.pdf)),
+To reveal the root cause of those bugs,
+it is effective to do whatever operations to test storage systems while running I/O benchmark, and check the data integrity in the I/O benchmark tool.
+For block storage, there are some brilliant tools for this purpose (cf. [vdbench](https://www.oracle.com/technetwork/server-storage/vdbench-1901683.pdf)),
 but object storages seem to lack those data validation tools. That is why Oval was developed.
 
 ## How Oval works
 
 Oval checks the data integrity during the object I/O benchmarks.
 Oval stores the expected data contents for each object in memory,
-and compares the actual data with it every time an object is read.
+and compares the actual data with it every time objects are read.
 
-To detect the data corruption as soon as possible, Oval issues get operations not only at random
+To detect the data corruption immediately, Oval issues get requests not only at random,
 but also right before and after the put and delete operations.
 
 Oval splits the data into several data units each of which has the size of 256 bytes,
@@ -44,9 +48,9 @@ and embeds the following information in the contents of the data unit itself:
 - Object's key name
 - Write count (the generation of data)
 - Offset of the data unit
+- Worker ID
 - Unix time
   - This is not used for data validation, but is helpful to investigate when the corrupted data was written.
-- Worker ID
 
 If the read data include some unexpected content,
 Oval dumps the actual binary data,
@@ -54,66 +58,11 @@ and you can investigate the root cause of the data corruption using the dump dat
 
 ## How to use
 
-```
-$ make
-$ ./oval -h         
-A data validation tool for S3-compatible object storages.
-If no subcommands are specified, Oval runs in the single-process mode.
+### The single-process mode
 
-Usage:
-  oval [flags]
-  oval [command]
+Just build and run Oval.
 
-Available Commands:
-  completion  Generate the autocompletion script for the specified shell
-  follower    Start a follower of the multi-process mode
-  help        Help about any command
-  leader      Start the leader of the multi-process mode
-
-Flags:
-      --bucket strings     The name list of the buckets. e.g. "bucket1,bucket2"
-      --endpoint string    The endpoint URL and TCP port number. e.g. "http://127.0.0.1:9000"
-  -h, --help               help for oval
-      --load string        File name to load the execution context.
-      --num_obj int        The maximum number of objects. (default 10)
-      --num_worker int     The number of workers per process. (default 1)
-      --ope_ratio string   The ration of put, get and delete operations. e.g. "2,3,1" (default "1,1,1")
-      --profiler           Enable profiler.
-      --save string        File name to save the execution context.
-      --size string        The size of object. Should be in the form like "8k" or "4k-2m". The unit "g" or "G" is not allowed. (default "4k")
-      --time duration      Time duration for run the workload. (default 3s)
-
-Use "oval [command] --help" for more information about a command.
-$ ./oval leader -h  
-Start the leader of the multi-process mode.
-
-Usage:
-  oval leader [flags]
-
-Flags:
-      --bucket strings          The name list of the buckets. e.g. "bucket1,bucket2"
-      --endpoint string         The endpoint URL and TCP port number. e.g. "http://127.0.0.1:9000"
-      --follower_list strings   The follower list.
-  -h, --help                    help for leader
-      --num_obj int             The maximum number of objects. (default 10)
-      --num_worker int          The number of workers per process. (default 1)
-      --ope_ratio string        The ration of put, get and delete operations. e.g. "2,3,1" (default "1,1,1")
-      --size string             The size of object. Should be in the form like "8k" or "4k-2m". The unit "g" or "G" is not allowed. (default "4k")
-      --time duration           Time duration for run the workload. (default 3s)
-$ ./oval follower -h
-Start a follower of the multi-process mode.
-
-Usage:
-  oval follower [flags]
-
-Flags:
-      --follower_port int   TCP port number to which the follower listens. (default -1)
-  -h, --help                help for follower
-```
-
-## Example
-
-#### Success case (the single-process mode)
+#### Example 1: Success case
 
 ```
 $ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000 --save test.json
@@ -130,7 +79,7 @@ $ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bu
 2022/12/31 21:31:09 stat.go:36: delete count: 575
 ```
 
-#### Data corruption case (the single-process mode)
+#### Example 2: Data corruption case
 
 ```
 $ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000 --save test.json
@@ -174,9 +123,15 @@ $ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bu
 2023/01/01 14:54:41 root.go:52: r.Run() failed.
 ```
 
-#### Success case (the multi-process mode)
+### The multi-process mode
 
-#### follower1
+1. Start as many follower processes as you need.
+2. Run the leader process.
+3. Stop follower processes after you finish your tests.
+
+#### Example: Success case
+
+##### follower1
 
 ```
 $ ./oval follower --follower_port 8080
@@ -200,7 +155,7 @@ $ ./oval follower --follower_port 8080
 2022/12/31 21:32:10 stat.go:36: delete count: 399
 ```
 
-#### follower2
+##### follower2
 
 ```
 $ ./oval follower --follower_port 8081
@@ -224,7 +179,7 @@ $ ./oval follower --follower_port 8081
 2022/12/31 21:32:10 stat.go:36: delete count: 416
 ```
 
-#### leader
+##### leader
 
 ```
 $ ./oval leader --follower_list "http://localhost:8080,http://localhost:8081" --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000
@@ -245,6 +200,10 @@ However, in some test scenarios, a single process mode is insufficient. Bugs in 
 Another common source of bugs is concurrency control. For example, processing many client requests may sometimes require a locking mechanism or other concurrent programming techniques. They have been producing many hard-to-find bugs for a long history.
 
 One of the best ways to make these things happen artificially and find hidden bugs is to stress the storage system. The multi-process mode of Oval was developed for this purpose.
+
+In the multi-process mode, follower processes run as web application servers first. Then, the leader process issues HTTP requests to all followers, and followers start their workload. The leader periodically checks whether each follower's job has finished. After all the work has been done, the leader collects the result and reports it to the user.
+
+## Internals
 
 The component diagram of the multi-process mode is as follows.
 
