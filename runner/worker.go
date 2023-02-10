@@ -26,19 +26,19 @@ type BucketWithObject struct {
 	ObjectMata *object.ObjectMeta `json:"objectMeta"`
 }
 
-func (v *Worker) ShowInfo() {
+func (w *Worker) ShowInfo() {
 	// Only show the key range of the first bucket
 	// because key range is the same for all buckets.
-	head, tail := v.BucketsWithObject[0].ObjectMata.GetHeadAndTailKey()
-	log.Printf("Worker ID = %#x, Key = [%s, %s]\n", v.id, head, tail)
+	head, tail := w.BucketsWithObject[0].ObjectMata.GetHeadAndTailKey()
+	log.Printf("Worker ID = %#x, Key = [%s, %s]\n", w.id, head, tail)
 }
 
-func (v *Worker) Put() error {
-	bucketWithObj := v.selectBucketWithObject()
+func (w *Worker) Put() error {
+	bucketWithObj := w.selectBucketWithObject()
 	obj := bucketWithObj.ObjectMata.GetRandomObject()
 
 	// Validation before write
-	getBeforeBody, err := v.client.GetObject(bucketWithObj.BucketName, obj.Key)
+	getBeforeBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
 		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
@@ -60,32 +60,32 @@ func (v *Worker) Put() error {
 			log.Println(err.Error())
 			return err
 		}
-		err := pattern.Valid(v.id, bucketWithObj.BucketName, obj, getBeforeBody)
+		err := pattern.Valid(w.id, bucketWithObj.BucketName, obj, getBeforeBody)
 		if err != nil {
 			err = fmt.Errorf("Data validation error occurred before put.\n%w", err)
 			log.Println(err.Error())
 			return err
 		}
-		v.st.AddGetForValidCount()
+		w.st.AddGetForValidCount()
 	}
 
 	bucketWithObj.ObjectMata.RegisterToExistingList(obj.Key)
 	obj.WriteCount++
-	body, size, err := pattern.Generate(v.minSize, v.maxSize, v.id, bucketWithObj.BucketName, obj)
+	body, size, err := pattern.Generate(w.minSize, w.maxSize, w.id, bucketWithObj.BucketName, obj)
 	obj.Size = size
 	if err != nil {
 		log.Println(err.Error())
 		return err
 	}
-	err = v.client.PutObject(bucketWithObj.BucketName, obj.Key, body)
+	err = w.client.PutObject(bucketWithObj.BucketName, obj.Key, body)
 	if err != nil {
 		log.Println(err.Error())
 		return err
 	}
-	v.st.AddPutCount()
+	w.st.AddPutCount()
 
 	// Validation after write
-	getAfterBody, err := v.client.GetObject(bucketWithObj.BucketName, obj.Key)
+	getAfterBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
 		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
@@ -95,25 +95,25 @@ func (v *Worker) Put() error {
 		return err
 	}
 	defer getAfterBody.Close()
-	err = pattern.Valid(v.id, bucketWithObj.BucketName, obj, getAfterBody)
+	err = pattern.Valid(w.id, bucketWithObj.BucketName, obj, getAfterBody)
 	if err != nil {
 		err = fmt.Errorf("Data validation error occurred after put.\n%w", err)
 		log.Println(err.Error())
 		return err
 	}
-	v.st.AddGetForValidCount()
+	w.st.AddGetForValidCount()
 	return nil
 }
 
-func (v *Worker) Get() error {
-	bucketWithObj := v.selectBucketWithObject()
+func (w *Worker) Get() error {
+	bucketWithObj := w.selectBucketWithObject()
 	obj := bucketWithObj.ObjectMata.GetExistingRandomObject()
 	if obj == nil {
 		return nil
 	}
 
 	// Validation on get
-	body, err := v.client.GetObject(bucketWithObj.BucketName, obj.Key)
+	body, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
 		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
@@ -123,25 +123,54 @@ func (v *Worker) Get() error {
 		return err
 	}
 	defer body.Close()
-	err = pattern.Valid(v.id, bucketWithObj.BucketName, obj, body)
+	err = pattern.Valid(w.id, bucketWithObj.BucketName, obj, body)
 	if err != nil {
 		err = fmt.Errorf("Data validation error occurred at get operation.\n%w", err)
 		log.Println(err.Error())
 		return err
 	}
-	v.st.AddGetCount()
+	w.st.AddGetCount()
 	return nil
 }
 
-func (v *Worker) Delete() error {
-	bucketWithObj := v.selectBucketWithObject()
+func (w *Worker) List() error {
+	bucketWithObj := w.selectBucketWithObject()
+
+	objectNames, err := w.client.ListObjects(bucketWithObj.BucketName, bucketWithObj.ObjectMata.KeyPrefix)
+	if err != nil {
+		log.Println(err.Error())
+		return err
+	}
+
+	if len(bucketWithObj.ObjectMata.ExistingObjectIDs) != len(objectNames) {
+		err = fmt.Errorf("Invalid number of objects found as a result of the LIST operation. expected = %d, actual = %d",
+			len(bucketWithObj.ObjectMata.ExistingObjectIDs), len(objectNames))
+		log.Println(err.Error())
+		return err
+	}
+
+	for _, objName := range objectNames {
+		if !bucketWithObj.ObjectMata.Exist(objName) {
+			err = fmt.Errorf("Invalid object key '%s' found in the result of the LIST operation. workerID = 0x%x",
+				objName, w.id)
+			log.Println(err.Error())
+			return err
+		}
+	}
+
+	w.st.AddListCount()
+	return nil
+}
+
+func (w *Worker) Delete() error {
+	bucketWithObj := w.selectBucketWithObject()
 	obj := bucketWithObj.ObjectMata.PopExistingRandomObject()
 	if obj == nil {
 		return nil
 	}
 
 	// Validation before delete
-	getBeforeBody, err := v.client.GetObject(bucketWithObj.BucketName, obj.Key)
+	getBeforeBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
 		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
@@ -151,23 +180,23 @@ func (v *Worker) Delete() error {
 		return err
 	}
 	defer getBeforeBody.Close()
-	err = pattern.Valid(v.id, bucketWithObj.BucketName, obj, getBeforeBody)
+	err = pattern.Valid(w.id, bucketWithObj.BucketName, obj, getBeforeBody)
 	if err != nil {
 		err = fmt.Errorf("Data validation error occurred before delete.\n%w", err)
 		log.Println(err.Error())
 		return err
 	}
-	v.st.AddGetForValidCount()
+	w.st.AddGetForValidCount()
 
-	err = v.client.DeleteObject(bucketWithObj.BucketName, obj.Key)
+	err = w.client.DeleteObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
 		log.Println(err.Error())
 		return err
 	}
-	v.st.AddDeleteCount()
+	w.st.AddDeleteCount()
 
 	// Validation after delete
-	getAfterBody, err := v.client.GetObject(bucketWithObj.BucketName, obj.Key)
+	getAfterBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
 		var nsk *s3_client.NoSuchKey
 		if !errors.As(err, &nsk) {
@@ -185,6 +214,6 @@ func (v *Worker) Delete() error {
 	return nil
 }
 
-func (v *Worker) selectBucketWithObject() *BucketWithObject {
-	return v.BucketsWithObject[rand.Intn(len(v.BucketsWithObject))]
+func (w *Worker) selectBucketWithObject() *BucketWithObject {
+	return w.BucketsWithObject[rand.Intn(len(w.BucketsWithObject))]
 }

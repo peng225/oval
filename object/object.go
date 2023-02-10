@@ -11,7 +11,9 @@ import (
 const (
 	MaxBucketNameLength = 16
 	MaxKeyLength        = 12
-	KeyPrefix           = "ov"
+	KeyShortPrefix      = "ov"
+	// len(KeyShortPrefix) + 2 (for process ID) + 2 (for worker ID)
+	KeyPrefixLength = 6
 )
 
 type Object struct {
@@ -24,6 +26,7 @@ type ObjectMeta struct {
 	ObjectList        []Object `json:"objectList"`
 	ExistingObjectIDs []int64  `json:"existingObjectIDs"`
 	KeyIDOffset       int64    `json:"keyIDOffset"`
+	KeyPrefix         string
 }
 
 func (obj *Object) Clear() {
@@ -40,17 +43,18 @@ func NewObject(objID int64) *Object {
 }
 
 func generateKey(objID int64) string {
-	return fmt.Sprintf("%s%010x", KeyPrefix, objID)
+	return fmt.Sprintf("%s%010x", KeyShortPrefix, objID)
 }
 
-func NewObjectMeta(numObj, keyIDOffset int64) *ObjectMeta {
+func NewObjectMeta(numObj int, keyIDOffset int64) *ObjectMeta {
 	om := &ObjectMeta{}
 	om.ObjectList = make([]Object, numObj)
-	for objID := int64(0); objID < numObj; objID++ {
-		om.ObjectList[objID] = *NewObject(keyIDOffset + objID)
+	for objID := 0; objID < numObj; objID++ {
+		om.ObjectList[objID] = *NewObject(keyIDOffset + int64(objID))
 	}
 	om.ExistingObjectIDs = make([]int64, 0, int(math.Sqrt(float64(numObj))))
 	om.KeyIDOffset = keyIDOffset
+	om.KeyPrefix = generateKey(keyIDOffset)[:KeyPrefixLength]
 
 	return om
 }
@@ -62,7 +66,7 @@ func (om *ObjectMeta) GetRandomObject() *Object {
 
 // Caution: this function should be called while the object lock is acquired.
 func (om *ObjectMeta) RegisterToExistingList(key string) {
-	objID, err := strconv.ParseInt(key[len(KeyPrefix):], 16, 64)
+	objID, err := strconv.ParseInt(key[len(KeyShortPrefix):], 16, 64)
 	if err != nil {
 		log.Fatal(err)
 	}
