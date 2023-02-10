@@ -114,6 +114,18 @@ func handleCommonFlags() {
 		log.Fatal(err)
 	}
 
+	if numWorker >= 256 {
+		log.Fatal("The number of workers must be less than 256.")
+	}
+
+	if numObj > 0x1000000 {
+		log.Fatal("The number of objects must be less than 16777216.")
+	}
+
+	if numObj < int64(numWorker) {
+		log.Fatal("The number of objects must be larger or equal to the number of workers.")
+	}
+
 	if numObj%int64(numWorker) != 0 {
 		log.Printf("warning: The number of objects (%d) is not divisible by the number of workers (%d). Only %d objects will be used.\n",
 			numObj, numWorker, numObj/int64(numWorker*numWorker))

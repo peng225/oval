@@ -128,7 +128,7 @@ func (r *Runner) init() {
 					BucketName: bucketName,
 					ObjectMata: object.NewObjectMeta(
 						r.execContext.NumObj/int64(r.execContext.NumWorker),
-						r.execContext.NumObj/int64(r.execContext.NumWorker)*int64(i)+(int64(r.processID)<<32)),
+						(int64(i)<<24)+(int64(r.processID)<<32)),
 				}
 			}
 			r.execContext.Workers[i].client = r.client
