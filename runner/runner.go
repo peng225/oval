@@ -105,10 +105,12 @@ func (r *Runner) init() {
 			}
 		} else {
 			if r.loadFileName == "" {
-				err = r.client.ClearBucket(bucketName, fmt.Sprintf("%s%02x", object.KeyPrefix, r.processID))
+				log.Printf("Clearing bucket '%s'.\n", bucketName)
+				err = r.client.ClearBucket(bucketName, fmt.Sprintf("%s%02x", object.KeyShortPrefix, r.processID))
 				if err != nil {
 					log.Fatal(err)
 				}
+				log.Println("Bucket cleared successfully.")
 			}
 		}
 	}
