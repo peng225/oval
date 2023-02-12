@@ -73,12 +73,10 @@ func (s *S3Client) CreateBucket(bucketName string) error {
 }
 
 func (s *S3Client) ClearBucket(bucketName, prefix string) error {
-	var continuationToken *string = nil
 	for {
 		listRes, err := s.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
-			Bucket:            &bucketName,
-			ContinuationToken: continuationToken,
-			Prefix:            &prefix,
+			Bucket: &bucketName,
+			Prefix: &prefix,
 		})
 		if err != nil {
 			return err
@@ -95,7 +93,6 @@ func (s *S3Client) ClearBucket(bucketName, prefix string) error {
 				return err
 			}
 		}
-		continuationToken = listRes.NextContinuationToken
 	}
 	return nil
 }
@@ -127,6 +124,30 @@ func (s *S3Client) GetObject(bucketName, key string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	return res.Body, err
+}
+
+func (s *S3Client) ListObjects(bucketName, prefix string) ([]string, error) {
+	var continuationToken *string = nil
+	objectNames := make([]string, 0)
+	for {
+		listRes, err := s.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
+			Bucket:            &bucketName,
+			ContinuationToken: continuationToken,
+			Prefix:            &prefix,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, obj := range listRes.Contents {
+			objectNames = append(objectNames, *obj.Key)
+		}
+
+		if listRes.NextContinuationToken == nil {
+			break
+		}
+		continuationToken = listRes.NextContinuationToken
+	}
+	return objectNames, nil
 }
 
 func (s *S3Client) DeleteObject(bucketName, key string) error {

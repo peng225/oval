@@ -24,7 +24,7 @@ const (
 type ExecutionContext struct {
 	Endpoint      string   `json:"endpoint"`
 	BucketNames   []string `json:"bucketNames"`
-	NumObj        int64    `json:"numObj"`
+	NumObj        int      `json:"numObj"`
 	NumWorker     int      `json:"numWorker"`
 	MinSize       int      `json:"minSize"`
 	MaxSize       int      `json:"maxSize"`
@@ -105,10 +105,12 @@ func (r *Runner) init() {
 			}
 		} else {
 			if r.loadFileName == "" {
-				err = r.client.ClearBucket(bucketName, fmt.Sprintf("%s%02x", object.KeyPrefix, r.processID))
+				log.Printf("Clearing bucket '%s'.\n", bucketName)
+				err = r.client.ClearBucket(bucketName, fmt.Sprintf("%s%02x", object.KeyShortPrefix, r.processID))
 				if err != nil {
 					log.Fatal(err)
 				}
+				log.Println("Bucket cleared successfully.")
 			}
 		}
 	}
@@ -127,8 +129,8 @@ func (r *Runner) init() {
 				r.execContext.Workers[i].BucketsWithObject[j] = &BucketWithObject{
 					BucketName: bucketName,
 					ObjectMata: object.NewObjectMeta(
-						r.execContext.NumObj/int64(r.execContext.NumWorker),
-						r.execContext.NumObj/int64(r.execContext.NumWorker)*int64(i)+(int64(r.processID)<<32)),
+						r.execContext.NumObj/r.execContext.NumWorker,
+						(int64(r.processID)<<32)+(int64(i)<<24)),
 				}
 			}
 			r.execContext.Workers[i].client = r.client
@@ -180,6 +182,8 @@ func (r *Runner) Run(cancel chan struct{}) error {
 					err = r.execContext.Workers[workerID].Get()
 				case Delete:
 					err = r.execContext.Workers[workerID].Delete()
+				case List:
+					err = r.execContext.Workers[workerID].List()
 				}
 				if err != nil {
 					errCh <- err
@@ -209,6 +213,7 @@ const (
 	Put Operation = iota
 	Get
 	Delete
+	List
 	NumOperation
 )
 
@@ -219,8 +224,10 @@ func (r *Runner) selectOperation() Operation {
 		return Put
 	} else if randVal < r.opeRatio[0]+r.opeRatio[1] {
 		return Get
-	} else {
+	} else if randVal < r.opeRatio[0]+r.opeRatio[1]+r.opeRatio[2] {
 		return Delete
+	} else {
+		return List
 	}
 }
 

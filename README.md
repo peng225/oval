@@ -65,38 +65,47 @@ Just build and run Oval.
 #### Example 1: Success case
 
 ```
-$ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000 --save test.json
-2022/12/31 21:31:04 worker.go:33: Worker ID = 0x1e77, Key = [ov0000000000, ov00000000ff]
-2022/12/31 21:31:04 worker.go:33: Worker ID = 0x1e78, Key = [ov0000000100, ov00000001ff]
-2022/12/31 21:31:04 worker.go:33: Worker ID = 0x1e79, Key = [ov0000000200, ov00000002ff]
-2022/12/31 21:31:04 worker.go:33: Worker ID = 0x1e7a, Key = [ov0000000300, ov00000003ff]
-2022/12/31 21:31:04 runner.go:151: Validation start.
-2022/12/31 21:31:09 runner.go:191: Validation finished.
-2022/12/31 21:31:09 stat.go:32: Statistics report.
-2022/12/31 21:31:09 stat.go:33: put count: 670
-2022/12/31 21:31:09 stat.go:34: get count: 609
-2022/12/31 21:31:09 stat.go:35: get (for validation) count: 1257
-2022/12/31 21:31:09 stat.go:36: delete count: 575
+$ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000
+2023/02/12 14:32:01 runner.go:108: Clearing bucket 'test-bucket'.
+2023/02/12 14:32:02 runner.go:113: Bucket cleared successfully.
+2023/02/12 14:32:02 runner.go:108: Clearing bucket 'test-bucket2'.
+2023/02/12 14:32:03 runner.go:113: Bucket cleared successfully.
+2023/02/12 14:32:03 worker.go:33: Worker ID = 0x3595, Key = [ov0000000000, ov00000000ff]
+2023/02/12 14:32:03 worker.go:33: Worker ID = 0x3596, Key = [ov0001000000, ov00010000ff]
+2023/02/12 14:32:03 worker.go:33: Worker ID = 0x3597, Key = [ov0002000000, ov00020000ff]
+2023/02/12 14:32:03 worker.go:33: Worker ID = 0x3598, Key = [ov0003000000, ov00030000ff]
+2023/02/12 14:32:03 runner.go:153: Validation start.
+2023/02/12 14:32:08 runner.go:197: Validation finished.
+2023/02/12 14:32:08 stat.go:37: Statistics report.
+2023/02/12 14:32:08 stat.go:38: put count: 618
+2023/02/12 14:32:08 stat.go:39: get count: 483
+2023/02/12 14:32:08 stat.go:40: get (for validation) count: 1140
+2023/02/12 14:32:08 stat.go:41: list count: 0
+2023/02/12 14:32:08 stat.go:42: delete count: 50
 ```
 
 #### Example 2: Data corruption case
 
 ```
-$ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000 --save test.json
-2023/01/01 14:54:41 worker.go:33: Worker ID = 0x2009, Key = [ov0000000000, ov00000000ff]
-2023/01/01 14:54:41 worker.go:33: Worker ID = 0x200a, Key = [ov0000000100, ov00000001ff]
-2023/01/01 14:54:41 worker.go:33: Worker ID = 0x200b, Key = [ov0000000200, ov00000002ff]
-2023/01/01 14:54:41 worker.go:33: Worker ID = 0x200c, Key = [ov0000000300, ov00000003ff]
-2023/01/01 14:54:41 runner.go:151: Validation start.
-2023/01/01 14:54:41 worker.go:101: Data validation error occurred after put.
+$ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000
+2023/02/12 14:43:46 runner.go:108: Clearing bucket 'test-bucket'.
+2023/02/12 14:43:47 runner.go:113: Bucket cleared successfully.
+2023/02/12 14:43:47 runner.go:108: Clearing bucket 'test-bucket2'.
+2023/02/12 14:43:47 runner.go:113: Bucket cleared successfully.
+2023/02/12 14:43:47 worker.go:33: Worker ID = 0x8e14, Key = [ov0000000000, ov00000000ff]
+2023/02/12 14:43:47 worker.go:33: Worker ID = 0x8e15, Key = [ov0001000000, ov00010000ff]
+2023/02/12 14:43:47 worker.go:33: Worker ID = 0x8e16, Key = [ov0002000000, ov00020000ff]
+2023/02/12 14:43:47 worker.go:33: Worker ID = 0x8e17, Key = [ov0003000000, ov00030000ff]
+2023/02/12 14:43:47 runner.go:153: Validation start.
+2023/02/12 14:43:47 worker.go:101: Data validation error occurred after put.
 - WriteCount is wrong. (expected = "2", actual = "1")
 - OffsetInObject is wrong. (expected = "0", actual = "256")
 00000000  74 65 73 74 2d 62 75 63  6b 65 74 20 20 20 20 20  |test-bucket     |
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ bucket name
-00000010  6f 76 30 30 30 30 30 30  30 31 66 34 01 00 00 00  |ov00000001f4....|
+00000010  6f 76 30 30 30 32 30 30  30 30 32 35 01 00 00 00  |ov0002000025....|
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ key name
                                                ^^^^^^^^^^^ write count
-00000020  00 01 00 00 0a 20 00 00  18 a1 8d 78 2d f1 05 00  |..... .....x-...|
+00000020  00 01 00 00 16 8e 00 00  67 ea e0 36 7a f4 05 00  |........g..6z...|
           ^^^^^^^^^^^ byte offset in this object
                       ^^^^^^^^^^^ worker ID
                                    ^^^^^^^^^^^^^^^^^^^^^^^ unix time (micro sec)
@@ -114,13 +123,14 @@ $ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bu
 000000e0  e0 e1 e2 e3 e4 e5 e6 e7  e8 e9 ea eb ec ed ee ef  |................|
 000000f0  f0 f1 f2 f3 f4 f5 f6 f7  f8 f9 fa fb fc fd fe ff  |................|
 
-2023/01/01 14:54:41 runner.go:193: Validation finished.
-2023/01/01 14:54:41 stat.go:32: Statistics report.
-2023/01/01 14:54:41 stat.go:33: put count: 93
-2023/01/01 14:54:41 stat.go:34: get count: 66
-2023/01/01 14:54:41 stat.go:35: get (for validation) count: 157
-2023/01/01 14:54:41 stat.go:36: delete count: 64
-2023/01/01 14:54:41 root.go:52: r.Run() failed.
+2023/02/12 14:43:47 runner.go:197: Validation finished.
+2023/02/12 14:43:47 stat.go:37: Statistics report.
+2023/02/12 14:43:47 stat.go:38: put count: 23
+2023/02/12 14:43:47 stat.go:39: get count: 11
+2023/02/12 14:43:47 stat.go:40: get (for validation) count: 30
+2023/02/12 14:43:47 stat.go:41: list count: 0
+2023/02/12 14:43:47 stat.go:42: delete count: 7
+2023/02/12 14:43:47 root.go:66: r.Run() failed.
 ```
 
 ### The multi-process mode
@@ -135,56 +145,66 @@ $ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bu
 
 ```
 $ ./oval follower --follower_port 8080
-2022/12/31 21:31:47 follower.go:41: Start server. port = 8080
-2022/12/31 21:32:04 follower.go:46: Received a init request.
-2022/12/31 21:32:04 follower.go:62: Received a start request.
-2022/12/31 21:32:04 follower.go:119: ID: 0
-2022/12/31 21:32:04 follower.go:120: Context: {http://localhost:9000 [test-bucket test-bucket2] 1024 4 4096 16384 0 []}
-2022/12/31 21:32:04 follower.go:121: OpeRatio: [0.3333333333333333 0.3333333333333333 0.3333333333333333]
-2022/12/31 21:32:04 follower.go:122: TimeInMs: 5000
-2022/12/31 21:32:05 worker.go:33: Worker ID = 0xd681, Key = [ov0000000000, ov00000000ff]
-2022/12/31 21:32:05 worker.go:33: Worker ID = 0xd682, Key = [ov0000000100, ov00000001ff]
-2022/12/31 21:32:05 worker.go:33: Worker ID = 0xd683, Key = [ov0000000200, ov00000002ff]
-2022/12/31 21:32:05 worker.go:33: Worker ID = 0xd684, Key = [ov0000000300, ov00000003ff]
-2022/12/31 21:32:05 runner.go:151: Validation start.
-2022/12/31 21:32:10 runner.go:191: Validation finished.
-2022/12/31 21:32:10 stat.go:32: Statistics report.
-2022/12/31 21:32:10 stat.go:33: put count: 479
-2022/12/31 21:32:10 stat.go:34: get count: 393
-2022/12/31 21:32:10 stat.go:35: get (for validation) count: 892
-2022/12/31 21:32:10 stat.go:36: delete count: 399
+2023/02/12 14:41:40 follower.go:41: Start server. port = 8080
+2023/02/12 14:41:53 follower.go:46: Received a init request.
+2023/02/12 14:41:53 follower.go:62: Received a start request.
+2023/02/12 14:41:53 follower.go:119: ID: 0
+2023/02/12 14:41:53 follower.go:120: Context: {http://localhost:9000 [test-bucket test-bucket2] 1024 4 4096 16384 0 []}
+2023/02/12 14:41:53 follower.go:121: OpeRatio: [0.3333333333333333 0.3333333333333333 0.3333333333333333 0]
+2023/02/12 14:41:53 follower.go:122: TimeInMs: 5000
+2023/02/12 14:41:53 runner.go:108: Clearing bucket 'test-bucket'.
+2023/02/12 14:41:53 runner.go:113: Bucket cleared successfully.
+2023/02/12 14:41:53 runner.go:108: Clearing bucket 'test-bucket2'.
+2023/02/12 14:41:53 runner.go:113: Bucket cleared successfully.
+2023/02/12 14:41:53 worker.go:33: Worker ID = 0x7ea7, Key = [ov0000000000, ov00000000ff]
+2023/02/12 14:41:53 worker.go:33: Worker ID = 0x7ea8, Key = [ov0001000000, ov00010000ff]
+2023/02/12 14:41:53 worker.go:33: Worker ID = 0x7ea9, Key = [ov0002000000, ov00020000ff]
+2023/02/12 14:41:53 worker.go:33: Worker ID = 0x7eaa, Key = [ov0003000000, ov00030000ff]
+2023/02/12 14:41:53 runner.go:153: Validation start.
+2023/02/12 14:41:58 runner.go:197: Validation finished.
+2023/02/12 14:41:58 stat.go:37: Statistics report.
+2023/02/12 14:41:58 stat.go:38: put count: 479
+2023/02/12 14:41:58 stat.go:39: get count: 402
+2023/02/12 14:41:58 stat.go:40: get (for validation) count: 872
+2023/02/12 14:41:58 stat.go:41: list count: 0
+2023/02/12 14:41:58 stat.go:42: delete count: 383
 ```
 
 ##### follower2
 
 ```
 $ ./oval follower --follower_port 8081
-2022/12/31 21:31:53 follower.go:41: Start server. port = 8081
-2022/12/31 21:32:04 follower.go:46: Received a init request.
-2022/12/31 21:32:04 follower.go:62: Received a start request.
-2022/12/31 21:32:04 follower.go:119: ID: 1
-2022/12/31 21:32:04 follower.go:120: Context: {http://localhost:9000 [test-bucket test-bucket2] 1024 4 4096 16384 0 []}
-2022/12/31 21:32:04 follower.go:121: OpeRatio: [0.3333333333333333 0.3333333333333333 0.3333333333333333]
-2022/12/31 21:32:04 follower.go:122: TimeInMs: 5000
-2022/12/31 21:32:05 worker.go:33: Worker ID = 0x6518, Key = [ov0100000000, ov01000000ff]
-2022/12/31 21:32:05 worker.go:33: Worker ID = 0x6519, Key = [ov0100000100, ov01000001ff]
-2022/12/31 21:32:05 worker.go:33: Worker ID = 0x651a, Key = [ov0100000200, ov01000002ff]
-2022/12/31 21:32:05 worker.go:33: Worker ID = 0x651b, Key = [ov0100000300, ov01000003ff]
-2022/12/31 21:32:05 runner.go:151: Validation start.
-2022/12/31 21:32:10 runner.go:191: Validation finished.
-2022/12/31 21:32:10 stat.go:32: Statistics report.
-2022/12/31 21:32:10 stat.go:33: put count: 466
-2022/12/31 21:32:10 stat.go:34: get count: 430
-2022/12/31 21:32:10 stat.go:35: get (for validation) count: 886
-2022/12/31 21:32:10 stat.go:36: delete count: 416
+2023/02/12 14:41:45 follower.go:41: Start server. port = 8081
+2023/02/12 14:41:53 follower.go:46: Received a init request.
+2023/02/12 14:41:53 follower.go:62: Received a start request.
+2023/02/12 14:41:53 follower.go:119: ID: 1
+2023/02/12 14:41:53 follower.go:120: Context: {http://localhost:9000 [test-bucket test-bucket2] 1024 4 4096 16384 0 []}
+2023/02/12 14:41:53 follower.go:121: OpeRatio: [0.3333333333333333 0.3333333333333333 0.3333333333333333 0]
+2023/02/12 14:41:53 follower.go:122: TimeInMs: 5000
+2023/02/12 14:41:53 runner.go:108: Clearing bucket 'test-bucket'.
+2023/02/12 14:41:53 runner.go:113: Bucket cleared successfully.
+2023/02/12 14:41:53 runner.go:108: Clearing bucket 'test-bucket2'.
+2023/02/12 14:41:53 runner.go:113: Bucket cleared successfully.
+2023/02/12 14:41:53 worker.go:33: Worker ID = 0x5803, Key = [ov0100000000, ov01000000ff]
+2023/02/12 14:41:53 worker.go:33: Worker ID = 0x5804, Key = [ov0101000000, ov01010000ff]
+2023/02/12 14:41:53 worker.go:33: Worker ID = 0x5805, Key = [ov0102000000, ov01020000ff]
+2023/02/12 14:41:53 worker.go:33: Worker ID = 0x5806, Key = [ov0103000000, ov01030000ff]
+2023/02/12 14:41:53 runner.go:153: Validation start.
+2023/02/12 14:41:58 runner.go:197: Validation finished.
+2023/02/12 14:41:58 stat.go:37: Statistics report.
+2023/02/12 14:41:58 stat.go:38: put count: 488
+2023/02/12 14:41:58 stat.go:39: get count: 430
+2023/02/12 14:41:58 stat.go:40: get (for validation) count: 892
+2023/02/12 14:41:58 stat.go:41: list count: 0
+2023/02/12 14:41:58 stat.go:42: delete count: 392
 ```
 
 ##### leader
 
 ```
 $ ./oval leader --follower_list "http://localhost:8080,http://localhost:8081" --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000
-2022/12/31 21:32:04 leader.go:34: Sent start requests to all followers.
-2022/12/31 21:32:10 leader.go:40: The report from followers:
+2023/02/12 14:41:53 leader.go:31: Sent start requests to all followers.
+2023/02/12 14:41:58 leader.go:37: The report from followers:
 follower: http://localhost:8080
 OK
 follower: http://localhost:8081
