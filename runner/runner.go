@@ -144,6 +144,9 @@ func (r *Runner) init() {
 			r.execContext.Workers[i].maxSize = r.execContext.MaxSize
 			r.execContext.Workers[i].client = r.client
 			r.execContext.Workers[i].st = &r.st
+			for j, _ := range r.execContext.Workers[i].BucketsWithObject {
+				r.execContext.Workers[i].BucketsWithObject[j].ObjectMeta.TidyUp()
+			}
 			r.execContext.Workers[i].ShowInfo()
 		}
 	}
