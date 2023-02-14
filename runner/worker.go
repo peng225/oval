@@ -23,26 +23,26 @@ type Worker struct {
 
 type BucketWithObject struct {
 	BucketName string             `json:"bucketName"`
-	ObjectMata *object.ObjectMeta `json:"objectMeta"`
+	ObjectMeta *object.ObjectMeta `json:"objectMeta"`
 }
 
 func (w *Worker) ShowInfo() {
 	// Only show the key range of the first bucket
 	// because key range is the same for all buckets.
-	head, tail := w.BucketsWithObject[0].ObjectMata.GetHeadAndTailKey()
+	head, tail := w.BucketsWithObject[0].ObjectMeta.GetHeadAndTailKey()
 	log.Printf("Worker ID = %#x, Key = [%s, %s]\n", w.id, head, tail)
 }
 
 func (w *Worker) Put() error {
 	bucketWithObj := w.selectBucketWithObject()
-	obj := bucketWithObj.ObjectMata.GetRandomObject()
+	obj := bucketWithObj.ObjectMeta.GetRandomObject()
 
 	// Validation before write
 	getBeforeBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
 		var nsk *s3_client.NoSuchKey
 		if errors.As(err, &nsk) {
-			if bucketWithObj.ObjectMata.Exist(obj.Key) {
+			if bucketWithObj.ObjectMeta.Exist(obj.Key) {
 				// expect: exists, actual: does not exist
 				err = fmt.Errorf("An object has been lost. (key = %s)", obj.Key)
 				log.Println(err.Error())
@@ -54,7 +54,7 @@ func (w *Worker) Put() error {
 		}
 	} else {
 		defer getBeforeBody.Close()
-		if !bucketWithObj.ObjectMata.Exist(obj.Key) {
+		if !bucketWithObj.ObjectMeta.Exist(obj.Key) {
 			// expect: does not exist, actual: exists
 			err = fmt.Errorf("An unexpected object was found. (key = %s)", obj.Key)
 			log.Println(err.Error())
@@ -69,7 +69,7 @@ func (w *Worker) Put() error {
 		w.st.AddGetForValidCount()
 	}
 
-	bucketWithObj.ObjectMata.RegisterToExistingList(obj.Key)
+	bucketWithObj.ObjectMeta.RegisterToExistingList(obj.Key)
 	obj.WriteCount++
 	body, size, err := pattern.Generate(w.minSize, w.maxSize, w.id, bucketWithObj.BucketName, obj)
 	obj.Size = size
@@ -107,7 +107,7 @@ func (w *Worker) Put() error {
 
 func (w *Worker) Get() error {
 	bucketWithObj := w.selectBucketWithObject()
-	obj := bucketWithObj.ObjectMata.GetExistingRandomObject()
+	obj := bucketWithObj.ObjectMeta.GetExistingRandomObject()
 	if obj == nil {
 		return nil
 	}
@@ -136,21 +136,21 @@ func (w *Worker) Get() error {
 func (w *Worker) List() error {
 	bucketWithObj := w.selectBucketWithObject()
 
-	objectNames, err := w.client.ListObjects(bucketWithObj.BucketName, bucketWithObj.ObjectMata.KeyPrefix)
+	objectNames, err := w.client.ListObjects(bucketWithObj.BucketName, bucketWithObj.ObjectMeta.KeyPrefix)
 	if err != nil {
 		log.Println(err.Error())
 		return err
 	}
 
-	if len(bucketWithObj.ObjectMata.ExistingObjectIDs) != len(objectNames) {
+	if len(bucketWithObj.ObjectMeta.ExistingObjectIDs) != len(objectNames) {
 		err = fmt.Errorf("Invalid number of objects found as a result of the LIST operation. expected = %d, actual = %d",
-			len(bucketWithObj.ObjectMata.ExistingObjectIDs), len(objectNames))
+			len(bucketWithObj.ObjectMeta.ExistingObjectIDs), len(objectNames))
 		log.Println(err.Error())
 		return err
 	}
 
 	for _, objName := range objectNames {
-		if !bucketWithObj.ObjectMata.Exist(objName) {
+		if !bucketWithObj.ObjectMeta.Exist(objName) {
 			err = fmt.Errorf("Invalid object key '%s' found in the result of the LIST operation. workerID = 0x%x",
 				objName, w.id)
 			log.Println(err.Error())
@@ -164,7 +164,7 @@ func (w *Worker) List() error {
 
 func (w *Worker) Delete() error {
 	bucketWithObj := w.selectBucketWithObject()
-	obj := bucketWithObj.ObjectMata.PopExistingRandomObject()
+	obj := bucketWithObj.ObjectMeta.PopExistingRandomObject()
 	if obj == nil {
 		return nil
 	}

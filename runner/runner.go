@@ -128,7 +128,7 @@ func (r *Runner) init() {
 			for j, bucketName := range r.execContext.BucketNames {
 				r.execContext.Workers[i].BucketsWithObject[j] = &BucketWithObject{
 					BucketName: bucketName,
-					ObjectMata: object.NewObjectMeta(
+					ObjectMeta: object.NewObjectMeta(
 						r.execContext.NumObj/r.execContext.NumWorker,
 						(int64(r.processID)<<32)+(int64(i)<<24)),
 				}
@@ -144,6 +144,9 @@ func (r *Runner) init() {
 			r.execContext.Workers[i].maxSize = r.execContext.MaxSize
 			r.execContext.Workers[i].client = r.client
 			r.execContext.Workers[i].st = &r.st
+			for j, _ := range r.execContext.Workers[i].BucketsWithObject {
+				r.execContext.Workers[i].BucketsWithObject[j].ObjectMeta.TidyUp()
+			}
 			r.execContext.Workers[i].ShowInfo()
 		}
 	}

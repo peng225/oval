@@ -23,10 +23,11 @@ type Object struct {
 }
 
 type ObjectMeta struct {
-	ObjectList        []Object `json:"objectList"`
-	ExistingObjectIDs []int64  `json:"existingObjectIDs"`
-	KeyIDOffset       int64    `json:"keyIDOffset"`
-	KeyPrefix         string
+	ObjectList          []Object `json:"objectList"`
+	ExistingObjectIDs   []int64  `json:"existingObjectIDs"`
+	existingObjectIDMap map[int64]struct{}
+	KeyIDOffset         int64 `json:"keyIDOffset"`
+	KeyPrefix           string
 }
 
 func (obj *Object) Clear() {
@@ -53,6 +54,7 @@ func NewObjectMeta(numObj int, keyIDOffset int64) *ObjectMeta {
 		om.ObjectList[objID] = *NewObject(keyIDOffset + int64(objID))
 	}
 	om.ExistingObjectIDs = make([]int64, 0, int(math.Sqrt(float64(numObj))))
+	om.existingObjectIDMap = make(map[int64]struct{})
 	om.KeyIDOffset = keyIDOffset
 	om.KeyPrefix = generateKey(keyIDOffset)[:KeyPrefixLength]
 
@@ -66,18 +68,16 @@ func (om *ObjectMeta) GetRandomObject() *Object {
 
 // Caution: this function should be called while the object lock is acquired.
 func (om *ObjectMeta) RegisterToExistingList(key string) {
-	objID, err := strconv.ParseInt(key[len(KeyShortPrefix):], 16, 64)
+	objID, err := strconv.ParseInt(key[KeyPrefixLength:], 16, 64)
 	if err != nil {
 		log.Fatal(err)
 	}
-	objID -= om.KeyIDOffset
-	for _, eoID := range om.ExistingObjectIDs {
-		if eoID == objID {
-			// The key is already registered.
-			return
-		}
+	if _, ok := om.existingObjectIDMap[objID]; ok {
+		// The key is already registered.
+		return
 	}
 	om.ExistingObjectIDs = append(om.ExistingObjectIDs, objID)
+	om.existingObjectIDMap[objID] = struct{}{}
 	if len(om.ObjectList) < len(om.ExistingObjectIDs) {
 		log.Fatal("Invalid contents of existing object ID list.")
 	}
@@ -87,12 +87,16 @@ func (om *ObjectMeta) PopExistingRandomObject() *Object {
 	if len(om.ExistingObjectIDs) == 0 {
 		return nil
 	}
-	existingObjID := rand.Intn(len(om.ExistingObjectIDs))
+	eoIDIndex := rand.Intn(len(om.ExistingObjectIDs))
 
-	objID := om.ExistingObjectIDs[existingObjID]
+	objID := om.ExistingObjectIDs[eoIDIndex]
 	// Delete the `existingObjID`-th entry from existing object ID list
-	om.ExistingObjectIDs[existingObjID] = om.ExistingObjectIDs[len(om.ExistingObjectIDs)-1]
+	om.ExistingObjectIDs[eoIDIndex] = om.ExistingObjectIDs[len(om.ExistingObjectIDs)-1]
 	om.ExistingObjectIDs = om.ExistingObjectIDs[:len(om.ExistingObjectIDs)-1]
+	if _, ok := om.existingObjectIDMap[objID]; !ok {
+		log.Fatalf("objID 0x%x found in ExistingObjectIDs, but not in existingObjectIDMap.", objID)
+	}
+	delete(om.existingObjectIDMap, objID)
 	return &om.ObjectList[objID]
 }
 
@@ -100,21 +104,28 @@ func (om *ObjectMeta) GetExistingRandomObject() *Object {
 	if len(om.ExistingObjectIDs) == 0 {
 		return nil
 	}
-	existingObjID := rand.Intn(len(om.ExistingObjectIDs))
+	eoIDIndex := rand.Intn(len(om.ExistingObjectIDs))
 
-	objID := om.ExistingObjectIDs[existingObjID]
+	objID := om.ExistingObjectIDs[eoIDIndex]
 	return &om.ObjectList[objID]
 }
 
 func (om *ObjectMeta) Exist(key string) bool {
-	for _, id := range om.ExistingObjectIDs {
-		if key == om.ObjectList[id].Key {
-			return true
-		}
+	objID, err := strconv.ParseInt(key[KeyPrefixLength:], 16, 64)
+	if err != nil {
+		log.Fatal(err)
 	}
-	return false
+	_, ok := om.existingObjectIDMap[objID]
+	return ok
 }
 
 func (om *ObjectMeta) GetHeadAndTailKey() (string, string) {
 	return om.ObjectList[0].Key, om.ObjectList[len(om.ObjectList)-1].Key
+}
+
+func (om *ObjectMeta) TidyUp() {
+	om.existingObjectIDMap = make(map[int64]struct{})
+	for _, objID := range om.ExistingObjectIDs {
+		om.existingObjectIDMap[objID] = struct{}{}
+	}
 }
