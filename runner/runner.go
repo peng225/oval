@@ -128,7 +128,7 @@ func (r *Runner) init() {
 			for j, bucketName := range r.execContext.BucketNames {
 				r.execContext.Workers[i].BucketsWithObject[j] = &BucketWithObject{
 					BucketName: bucketName,
-					ObjectMata: object.NewObjectMeta(
+					ObjectMeta: object.NewObjectMeta(
 						r.execContext.NumObj/r.execContext.NumWorker,
 						(int64(r.processID)<<32)+(int64(i)<<24)),
 				}
