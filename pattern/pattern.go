@@ -19,43 +19,52 @@ const (
 	dataUnitHeaderSizeWithoutBucketAndKey = 20
 )
 
-func Generate(minSize, maxSize, workerID int, bucketName string, obj *object.Object) (io.ReadSeeker, int, error) {
+func DecideSize(minSize, maxSize int) (int, error) {
+	if minSize < dataUnitSize {
+		return 0, fmt.Errorf("minSize should be larger than or equal to %v.", dataUnitSize)
+	}
 	if minSize%dataUnitSize != 0 {
-		return nil, 0, fmt.Errorf("minSize should be a multiple of %v.", dataUnitSize)
+		return 0, fmt.Errorf("minSize should be a multiple of %v.", dataUnitSize)
 	}
 	if maxSize != 0 && maxSize%dataUnitSize != 0 {
-		return nil, 0, fmt.Errorf("maxSize should be a multiple of %v.", dataUnitSize)
+		return 0, fmt.Errorf("maxSize should be a multiple of %v.", dataUnitSize)
 	}
 	if maxSize < minSize {
-		return nil, 0, errors.New("maxSize should be larger than minSize.")
+		return 0, errors.New("maxSize should be larger than or equal to minSize.")
+	}
+
+	return minSize + dataUnitSize*rand.Intn((maxSize-minSize)/dataUnitSize+1), nil
+}
+
+func Generate(dataSize, workerID, offset int, bucketName string, obj *object.Object) (io.ReadSeeker, error) {
+	if offset%dataUnitSize != 0 {
+		return nil, fmt.Errorf("invalid offset size: %d", offset)
 	}
 	if len(bucketName) > object.MaxBucketNameLength {
 		bucketName = bucketName[:object.MaxBucketNameLength]
 	}
 
-	var dataSize int
-	dataSize = minSize + dataUnitSize*rand.Intn((maxSize-minSize)/dataUnitSize+1)
-
 	f := memfile.New([]byte{})
 	// memfile does not implement io.Closer interface.
 
+	unitCountOffset := offset / dataUnitSize
 	for i := 0; i < dataSize/dataUnitSize; i++ {
-		err := generateDataUnit(i, workerID, bucketName, obj, f)
+		err := generateDataUnit(i+unitCountOffset, workerID, bucketName, obj, f)
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 	}
 
 	if len(f.Bytes()) != dataSize {
-		return nil, 0, fmt.Errorf("Generated data size is wrong. (expected: %v, actual: %v)", dataSize, f.Bytes())
+		return nil, fmt.Errorf("Generated data size is wrong. (expected: %v, actual: %v)", dataSize, f.Bytes())
 	}
 
 	_, err := f.Seek(0, 0)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	return f, dataSize, nil
+	return f, nil
 }
 
 func generateDataUnit(unitCount, workerID int, bucketName string, obj *object.Object, writer io.Writer) error {

@@ -18,19 +18,19 @@ const (
 /*******************************/
 /* Test set up                 */
 /*******************************/
-type GeneratorSuite struct {
+type PatternSuite struct {
 	suite.Suite
 	f io.ReadWriteSeeker
 }
 
-func (suite *GeneratorSuite) SetupTest() {
+func (suite *PatternSuite) SetupTest() {
 	suite.f = memfile.New([]byte{})
 }
 
 /*******************************/
 /* Test cases                  */
 /*******************************/
-func (suite *GeneratorSuite) TestGenerateDataUnitSuccess() {
+func (suite *PatternSuite) TestGenerateDataUnitSuccess() {
 	obj := &object.Object{
 		Key:        testKeyName,
 		Size:       256,
@@ -61,7 +61,7 @@ func (suite *GeneratorSuite) TestGenerateDataUnitSuccess() {
 	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
 }
 
-func (suite *GeneratorSuite) TestGenerateSuccess() {
+func (suite *PatternSuite) TestGenerateSuccess() {
 	obj := &object.Object{
 		Key:        testKeyName,
 		Size:       256,
@@ -69,7 +69,8 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 	}
 	workerID := 100
 
-	readSeeker, size, err := Generate(512, 512, workerID, testBucketName, obj)
+	size := 512
+	readSeeker, err := Generate(size, workerID, 0, testBucketName, obj)
 	suite.NoError(err)
 	suite.Equal(512, size)
 	data, err := io.ReadAll(readSeeker)
@@ -111,7 +112,7 @@ func (suite *GeneratorSuite) TestGenerateSuccess() {
 	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
 }
 
-func (suite *GeneratorSuite) TestGenerateLongBucketName() {
+func (suite *PatternSuite) TestGenerateLongBucketName() {
 	obj := &object.Object{
 		Key:        testKeyName,
 		Size:       256,
@@ -119,7 +120,8 @@ func (suite *GeneratorSuite) TestGenerateLongBucketName() {
 	}
 	workerID := 100
 
-	readSeeker, size, err := Generate(512, 512, workerID, testLongBucketName, obj)
+	size := 512
+	readSeeker, err := Generate(size, workerID, 0, testLongBucketName, obj)
 	suite.NoError(err)
 	suite.Equal(512, size)
 	data, err := io.ReadAll(readSeeker)
@@ -161,7 +163,7 @@ func (suite *GeneratorSuite) TestGenerateLongBucketName() {
 	suite.Equal([]byte{0x64, 0x00, 0x00, 0x00}, data[current:current+4]) // hex(100) = 0x64
 }
 
-func (suite *GeneratorSuite) TestValidDataUnitSuccess() {
+func (suite *PatternSuite) TestValidDataUnitSuccess() {
 	obj := &object.Object{
 		Key:        testKeyName,
 		Size:       256,
@@ -178,14 +180,15 @@ func (suite *GeneratorSuite) TestValidDataUnitSuccess() {
 	suite.Equal(nil, validDataUnit(4, workerID, testBucketName, obj, data))
 }
 
-func (suite *GeneratorSuite) TestValidSuccess() {
+func (suite *PatternSuite) TestValidSuccess() {
 	obj := &object.Object{
 		Key:        testKeyName,
 		WriteCount: 300,
 	}
 	workerID := 100
 
-	readSeeker, size, err := Generate(1024, 1024, workerID, testBucketName, obj)
+	size := 1024
+	readSeeker, err := Generate(size, workerID, 0, testBucketName, obj)
 	suite.NoError(err)
 	obj.Size = size
 
@@ -193,14 +196,15 @@ func (suite *GeneratorSuite) TestValidSuccess() {
 	suite.NoError(err)
 }
 
-func (suite *GeneratorSuite) TestValidLongBucketName() {
+func (suite *PatternSuite) TestValidLongBucketName() {
 	obj := &object.Object{
 		Key:        testKeyName,
 		WriteCount: 300,
 	}
 	workerID := 100
 
-	readSeeker, size, err := Generate(1024, 1024, workerID, testLongBucketName, obj)
+	size := 1024
+	readSeeker, err := Generate(size, workerID, 0, testLongBucketName, obj)
 	suite.NoError(err)
 	obj.Size = size
 
@@ -208,9 +212,64 @@ func (suite *GeneratorSuite) TestValidLongBucketName() {
 	suite.NoError(err)
 }
 
+func (suite *PatternSuite) TestDecideSize() {
+	type testCase struct {
+		minSize     int
+		maxSize     int
+		expectedErr bool
+	}
+	testCases := []testCase{
+		{
+			minSize:     512,
+			maxSize:     512,
+			expectedErr: false,
+		},
+		{
+			minSize:     1024,
+			maxSize:     5 * 1024 * 1024,
+			expectedErr: false,
+		},
+		{
+			minSize:     256,
+			maxSize:     1024,
+			expectedErr: false,
+		},
+		{
+			minSize:     513,
+			maxSize:     1024,
+			expectedErr: true,
+		},
+		{
+			minSize:     512,
+			maxSize:     513,
+			expectedErr: true,
+		},
+		{
+			minSize:     0,
+			maxSize:     512,
+			expectedErr: true,
+		},
+		{
+			minSize:     1024,
+			maxSize:     512,
+			expectedErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		size, err := DecideSize(tc.minSize, tc.maxSize)
+		if tc.expectedErr {
+			suite.Errorf(err, "tc.minSize: %d, tc.maxSize: %d", tc.minSize, tc.maxSize)
+			continue
+		}
+		suite.GreaterOrEqual(size, tc.minSize)
+		suite.LessOrEqual(size, tc.maxSize)
+	}
+}
+
 /*******************************/
 /* Run tests                   */
 /*******************************/
-func TestGenerateSuite(t *testing.T) {
-	suite.Run(t, new(GeneratorSuite))
+func TestPatternSuite(t *testing.T) {
+	suite.Run(t, new(PatternSuite))
 }

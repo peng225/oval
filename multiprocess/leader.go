@@ -19,10 +19,11 @@ const (
 )
 
 type StartFollowerParameter struct {
-	ID       int
-	Context  runner.ExecutionContext
-	OpeRatio []float64
-	TimeInMs int64
+	ID              int
+	Context         runner.ExecutionContext
+	OpeRatio        []float64
+	TimeInMs        int64
+	MultipartThresh int
 }
 
 func InitFollower(followerList []string) error {
@@ -44,13 +45,14 @@ func InitFollower(followerList []string) error {
 
 func StartFollower(followerList []string,
 	context *runner.ExecutionContext,
-	opeRatio []float64, timeInMs int64) error {
+	opeRatio []float64, timeInMs int64, multipartThresh int) error {
 	for i, follower := range followerList {
 		param := StartFollowerParameter{
-			ID:       i,
-			Context:  *context,
-			OpeRatio: opeRatio,
-			TimeInMs: timeInMs,
+			ID:              i,
+			Context:         *context,
+			OpeRatio:        opeRatio,
+			TimeInMs:        timeInMs,
+			MultipartThresh: multipartThresh,
 		}
 		data, err := json.Marshal(param)
 		if err != nil {

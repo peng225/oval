@@ -109,6 +109,70 @@ func (s *S3Client) PutObject(bucketName, key string, body io.ReadSeeker) error {
 	return nil
 }
 
+type PartBody struct {
+	Body io.ReadSeeker
+	Size int
+}
+
+func (s *S3Client) MultipartUpload(bucketName, key string, partBodies []PartBody) error {
+	ctx := context.Background()
+	cmuOutput, err := s.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+		Bucket: &bucketName,
+		Key:    &key,
+	})
+	if err != nil {
+		return err
+	}
+
+	partList := make([]types.CompletedPart, 0)
+	for i, partBody := range partBodies {
+		upOutput, err := s.client.UploadPart(ctx, &s3.UploadPartInput{
+			Bucket:        &bucketName,
+			Key:           &key,
+			Body:          partBody.Body,
+			PartNumber:    int32(i + 1),
+			UploadId:      cmuOutput.UploadId,
+			ContentLength: int64(partBody.Size),
+		})
+		if err != nil {
+			_, abortErr := s.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+				Bucket:   &bucketName,
+				Key:      &key,
+				UploadId: cmuOutput.UploadId,
+			})
+			if abortErr != nil {
+				log.Fatalf("UploadPart err: %v, AbortMultipartUpload: %v", err, abortErr)
+			}
+			return err
+		}
+		partList = append(partList, types.CompletedPart{
+			PartNumber: int32(i + 1),
+			ETag:       upOutput.ETag,
+		})
+	}
+
+	_, err = s.client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+		Bucket:   &bucketName,
+		Key:      &key,
+		UploadId: cmuOutput.UploadId,
+		MultipartUpload: &types.CompletedMultipartUpload{
+			Parts: partList,
+		},
+	})
+	if err != nil {
+		_, abortErr := s.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+			Bucket:   &bucketName,
+			Key:      &key,
+			UploadId: cmuOutput.UploadId,
+		})
+		if abortErr != nil {
+			log.Fatalf("CompleteMultipartUpload err: %v, AbortMultipartUpload: %v", err, abortErr)
+		}
+		return err
+	}
+	return nil
+}
+
 func (s *S3Client) GetObject(bucketName, key string) (io.ReadCloser, error) {
 	res, err := s.client.GetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: &bucketName,

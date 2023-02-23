@@ -19,8 +19,8 @@ test: $(OVAL)
 
 .PHONY: run
 run: $(OVAL)
-	$(OVAL) --size 4k-16k --time $(EXEC_TIME) --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --ope_ratio 8,8,8,1 --endpoint http://localhost:9000 --save test.json
-	$(OVAL) --time 3s --load test.json
+	$(OVAL) --size 4k-12m --time $(EXEC_TIME) --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --ope_ratio 8,8,8,1 --endpoint http://localhost:9000 --multipart_thresh 5m --save test.json
+	$(OVAL) --time 3s --multipart_thresh 6m --load test.json
 
 .PHONY: run-multi-process
 run-multi-process: $(OVAL)
@@ -30,7 +30,7 @@ run-multi-process: $(OVAL)
 
 .PHONY: run-leader
 run-leader: $(OVAL)
-	$(OVAL) leader --follower_list "http://localhost:8080,http://localhost:8081,http://localhost:8082" --size 4k-16k --time $(EXEC_TIME) --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --ope_ratio 8,8,8,1 --endpoint http://localhost:9000
+	$(OVAL) leader --follower_list "http://localhost:8080,http://localhost:8081,http://localhost:8082" --size 4k-12m --time $(EXEC_TIME) --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --ope_ratio 8,8,8,1 --endpoint http://localhost:9000 --multipart_thresh 5m
 
 .PHONY: run-followers
 run-followers: $(OVAL)
