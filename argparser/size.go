@@ -53,3 +53,8 @@ func parseSizeUnit(s string) (int, error) {
 	}
 	return 0, fmt.Errorf("Illegal size format: %v\n", s)
 }
+
+func ParseMultipartThresh(s string) (int, error) {
+	mpThresh, err := parseSizeUnit(s)
+	return mpThresh, err
+}

@@ -33,7 +33,7 @@ func (w *Worker) ShowInfo() {
 	log.Printf("Worker ID = %#x, Key = [%s, %s]\n", w.id, head, tail)
 }
 
-func (w *Worker) Put() error {
+func (w *Worker) Put(multipartThresh int) error {
 	bucketWithObj := w.selectBucketWithObject()
 	obj := bucketWithObj.ObjectMeta.GetRandomObject()
 
@@ -69,18 +69,50 @@ func (w *Worker) Put() error {
 		w.st.AddGetForValidCount()
 	}
 
-	bucketWithObj.ObjectMeta.RegisterToExistingList(obj.Key)
-	obj.WriteCount++
-	body, size, err := pattern.Generate(w.minSize, w.maxSize, w.id, bucketWithObj.BucketName, obj)
-	obj.Size = size
+	size, err := pattern.DecideSize(w.minSize, w.maxSize)
 	if err != nil {
 		log.Println(err.Error())
 		return err
 	}
-	err = w.client.PutObject(bucketWithObj.BucketName, obj.Key, body)
-	if err != nil {
-		log.Println(err.Error())
-		return err
+	obj.Size = size
+	bucketWithObj.ObjectMeta.RegisterToExistingList(obj.Key)
+	obj.WriteCount++
+	if size <= multipartThresh {
+		body, err := pattern.Generate(size, w.id, 0, bucketWithObj.BucketName, obj)
+		if err != nil {
+			log.Println(err.Error())
+			return err
+		}
+		err = w.client.PutObject(bucketWithObj.BucketName, obj.Key, body)
+		if err != nil {
+			log.Println(err.Error())
+			return err
+		}
+	} else {
+		// multipart upload
+		partBodies := make([]s3_client.PartBody, 0)
+		remainingSize := size
+		for remainingSize > 0 {
+			partSize := remainingSize
+			if multipartThresh < partSize {
+				partSize = multipartThresh
+			}
+			body, err := pattern.Generate(partSize, w.id, size-remainingSize, bucketWithObj.BucketName, obj)
+			if err != nil {
+				log.Println(err.Error())
+				return err
+			}
+			partBodies = append(partBodies, s3_client.PartBody{
+				Body: body,
+				Size: partSize,
+			})
+			remainingSize -= partSize
+		}
+		err = w.client.MultipartUpload(bucketWithObj.BucketName, obj.Key, partBodies)
+		if err != nil {
+			log.Println(err.Error())
+			return err
+		}
 	}
 	w.st.AddPutCount()
 

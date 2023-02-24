@@ -33,31 +33,33 @@ type ExecutionContext struct {
 }
 
 type Runner struct {
-	execContext  *ExecutionContext
-	opeRatio     []float64
-	timeInMs     int64
-	profiler     bool
-	loadFileName string
-	client       *s3_client.S3Client
-	st           stat.Stat
-	processID    int
+	execContext     *ExecutionContext
+	opeRatio        []float64
+	timeInMs        int64
+	profiler        bool
+	loadFileName    string
+	client          *s3_client.S3Client
+	st              stat.Stat
+	processID       int
+	multipartThresh int
 }
 
 func NewRunner(execContext *ExecutionContext, opeRatio []float64, timeInMs int64,
-	profiler bool, loadFileName string, processID int) *Runner {
+	profiler bool, loadFileName string, processID, multipartThresh int) *Runner {
 	runner := &Runner{
-		execContext:  execContext,
-		opeRatio:     opeRatio,
-		timeInMs:     timeInMs,
-		profiler:     profiler,
-		loadFileName: loadFileName,
-		processID:    processID,
+		execContext:     execContext,
+		opeRatio:        opeRatio,
+		timeInMs:        timeInMs,
+		profiler:        profiler,
+		loadFileName:    loadFileName,
+		processID:       processID,
+		multipartThresh: multipartThresh,
 	}
 	runner.init()
 	return runner
 }
 
-func NewRunnerFromLoadFile(loadFileName string, opeRatio []float64, timeInMs int64, profiler bool) *Runner {
+func NewRunnerFromLoadFile(loadFileName string, opeRatio []float64, timeInMs int64, profiler bool, multipartThresh int) *Runner {
 	if loadFileName == "" {
 		log.Fatal("loadFileName is empty.")
 	}
@@ -66,7 +68,7 @@ func NewRunnerFromLoadFile(loadFileName string, opeRatio []float64, timeInMs int
 		log.Fatal(err)
 	}
 	ec := loadSavedContext(loadFileName)
-	return NewRunner(ec, opeRatio, timeInMs, profiler, loadFileName, 0)
+	return NewRunner(ec, opeRatio, timeInMs, profiler, loadFileName, 0, multipartThresh)
 }
 
 func loadSavedContext(loadFileName string) *ExecutionContext {
@@ -180,7 +182,7 @@ func (r *Runner) Run(cancel chan struct{}) error {
 				operation := r.selectOperation()
 				switch operation {
 				case Put:
-					err = r.execContext.Workers[workerID].Put()
+					err = r.execContext.Workers[workerID].Put(r.multipartThresh)
 				case Get:
 					err = r.execContext.Workers[workerID].Get()
 				case Delete:

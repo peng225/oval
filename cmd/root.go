@@ -12,19 +12,21 @@ import (
 )
 
 var (
-	numObj       int
-	numWorker    int
-	sizePattern  string
-	execTime     time.Duration
-	bucketNames  []string
-	opeRatioStr  string
-	endpoint     string
-	profiler     bool
-	saveFileName string
-	loadFileName string
+	numObj             int
+	numWorker          int
+	sizePattern        string
+	execTime           time.Duration
+	bucketNames        []string
+	opeRatioStr        string
+	endpoint           string
+	multipartThreshStr string
+	profiler           bool
+	saveFileName       string
+	loadFileName       string
 
 	minSize, maxSize int
 	opeRatio         []float64
+	multipartThresh  int
 	execContext      *runner.ExecutionContext
 )
 
@@ -57,9 +59,9 @@ If no subcommands are specified, Oval runs in the single-process mode.`,
 
 		var r *runner.Runner
 		if loadFileName == "" {
-			r = runner.NewRunner(execContext, opeRatio, execTime.Milliseconds(), profiler, loadFileName, 0)
+			r = runner.NewRunner(execContext, opeRatio, execTime.Milliseconds(), profiler, loadFileName, 0, multipartThresh)
 		} else {
-			r = runner.NewRunnerFromLoadFile(loadFileName, opeRatio, execTime.Milliseconds(), profiler)
+			r = runner.NewRunnerFromLoadFile(loadFileName, opeRatio, execTime.Milliseconds(), profiler, multipartThresh)
 		}
 		err = r.Run(nil)
 		if err != nil {
@@ -113,6 +115,10 @@ func handleCommonFlags() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	multipartThresh, err = argparser.ParseMultipartThresh(multipartThreshStr)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if numWorker >= 256 {
 		log.Fatal("The number of workers must be less than 256.")
@@ -144,9 +150,10 @@ func handleCommonFlags() {
 func defineCommonFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVar(&numObj, "num_obj", 10, "The maximum number of objects per process.")
 	cmd.Flags().IntVar(&numWorker, "num_worker", 1, "The number of workers per process.")
-	cmd.Flags().StringVar(&sizePattern, "size", "4k", "The size of object. Should be in the form like \"8k\" or \"4k-2m\". The unit \"g\" or \"G\" is not allowed.")
+	cmd.Flags().StringVar(&sizePattern, "size", "4k", "The size of object. Should be in the form like \"8k\" or \"4k-2m\". Only \"k\" and \"m\" is allowed as an unit.")
 	cmd.Flags().DurationVar(&execTime, "time", time.Second*3, "Time duration for run the workload.")
 	cmd.Flags().StringSliceVar(&bucketNames, "bucket", nil, "The name list of the buckets. e.g. \"bucket1,bucket2\"")
 	cmd.Flags().StringVar(&opeRatioStr, "ope_ratio", "1,1,1,0", "The ration of put, get, delete and list operations. e.g. \"2,3,1,1\"")
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "The endpoint URL and TCP port number. e.g. \"http://127.0.0.1:9000\"")
+	cmd.Flags().StringVar(&multipartThreshStr, "multipart_thresh", "100m", "The threshold of the object size to switch to the multipart upload. Only \"k\" and \"m\" is allowed as an unit.")
 }

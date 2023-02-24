@@ -24,7 +24,7 @@ var leaderCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 		err = multiprocess.StartFollower(followerList, execContext,
-			opeRatio, execTime.Milliseconds())
+			opeRatio, execTime.Milliseconds(), multipartThresh)
 		if err != nil {
 			log.Fatal(err)
 		}
