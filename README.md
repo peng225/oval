@@ -32,6 +32,12 @@ it is effective to do whatever operations to test storage systems while running 
 For block storage, there are some brilliant tools for this purpose (cf. [vdbench](https://www.oracle.com/technetwork/server-storage/vdbench-1901683.pdf)),
 but object storages seem to lack those data validation tools. That is why Oval was developed.
 
+### Isn't the checksum not enough?
+
+S3 interface provides a way to check the data integrity by [checksum](https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html). It ensures that the data is not corrupted during the entire lifetime of each object. Isn't it enough for data integrity testing?
+
+In my understanding, no, it's not. Storage systems can have a horrible bug, which provokes returning OK to a PUT request without writing the data to any persistent medium. Then we throw a GET request to the object, finding that the older one is returned. Since the older object is not corrupted, we cannot detect the bug by checking the checksum value.
+
 ## How Oval works
 
 Oval checks the data integrity during the object I/O benchmarks.
