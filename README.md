@@ -64,13 +64,9 @@ and you can investigate the root cause of the data corruption using the dump dat
 
 ## How to use
 
-### The single-process mode
+### Example 1: Success case
 
-Just build and run Oval.
-
-#### Example 1: Success case
-
-```
+```console
 $ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000
 2023/02/12 14:32:01 runner.go:108: Clearing bucket 'test-bucket'.
 2023/02/12 14:32:02 runner.go:113: Bucket cleared successfully.
@@ -90,9 +86,9 @@ $ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bu
 2023/02/12 14:32:08 stat.go:42: delete count: 50
 ```
 
-#### Example 2: Data corruption case
+### Example 2: Data corruption case
 
-```
+```console
 $ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000
 2023/02/12 14:43:46 runner.go:108: Clearing bucket 'test-bucket'.
 2023/02/12 14:43:47 runner.go:113: Bucket cleared successfully.
@@ -139,17 +135,29 @@ $ ./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bu
 2023/02/12 14:43:47 root.go:66: r.Run() failed.
 ```
 
-### The multi-process mode
+## Execution mode
+
+Oval has two execution modes; the single-process mode and the multi-process mode. In the single-process mode, Oval runs as the single-process in a single node. That is the easiest way to use Oval.
+
+However, in some test scenarios, a single process mode is insufficient. Bugs in storage systems are often revealed when some error happens in the storage system. One of the most common forms of error is timeout. When a timeout occurs for some internal process in the storage systems, it must be handled properly to clean things up. These error handling logics are error-prone.
+
+Another common source of bugs is concurrency control. For example, processing many client requests may sometimes require a locking mechanism or other concurrent programming techniques. They have been producing many hard-to-find bugs for a long history.
+
+One of the best ways to make these things happen artificially and find hidden bugs is to stress the storage system. The multi-process mode of Oval was developed for this purpose.
+
+In the multi-process mode, follower processes run as web application servers first. Then, the leader process issues HTTP requests to all followers, and followers start their workload. The leader periodically checks whether each follower's job has finished. After all the work has been done, the leader collects the result and reports it to the user.
+
+### How to use the multi-process mode
 
 1. Start as many follower processes as you need.
 2. Run the leader process.
 3. Stop follower processes after you finish your tests.
 
-#### Example: Success case
+### Example
 
-##### follower1
+#### follower1
 
-```
+```console
 $ ./oval follower --follower_port 8080
 2023/02/12 14:41:40 follower.go:41: Start server. port = 8080
 2023/02/12 14:41:53 follower.go:46: Received a init request.
@@ -176,9 +184,9 @@ $ ./oval follower --follower_port 8080
 2023/02/12 14:41:58 stat.go:42: delete count: 383
 ```
 
-##### follower2
+#### follower2
 
-```
+```console
 $ ./oval follower --follower_port 8081
 2023/02/12 14:41:45 follower.go:41: Start server. port = 8081
 2023/02/12 14:41:53 follower.go:46: Received a init request.
@@ -205,9 +213,9 @@ $ ./oval follower --follower_port 8081
 2023/02/12 14:41:58 stat.go:42: delete count: 392
 ```
 
-##### leader
+#### leader
 
-```
+```console
 $ ./oval leader --follower_list "http://localhost:8080,http://localhost:8081" --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000
 2023/02/12 14:41:53 leader.go:31: Sent start requests to all followers.
 2023/02/12 14:41:58 leader.go:37: The report from followers:
@@ -217,17 +225,53 @@ follower: http://localhost:8081
 OK
 ```
 
-## Execution mode
+## Testing before and after the blackout
 
-Oval has two execution modes; the single-process mode and the multi-process mode. In the single-process mode, Oval runs as the single-process in a single node. That is the easiest way to use Oval.
+Oval provides functionality to save and load the execution context. This feature enables the data integrity test before and after the blackout. A typical test scenario is as follows.
 
-However, in some test scenarios, a single process mode is insufficient. Bugs in storage systems are often revealed when some error happens in the storage system. One of the most common forms of error is timeout. When a timeout occurs for some internal process in the storage systems, it must be handled properly to clean things up. These error handling logics are error-prone.
+1. Run Oval and save the execution context.
+2. Stop and start the storage system.
+3. Run Oval again using the saved context.
 
-Another common source of bugs is concurrency control. For example, processing many client requests may sometimes require a locking mechanism or other concurrent programming techniques. They have been producing many hard-to-find bugs for a long history.
+This kind of test is effective for revealing a bug of failing to persist the data.
 
-One of the best ways to make these things happen artificially and find hidden bugs is to stress the storage system. The multi-process mode of Oval was developed for this purpose.
+### Example
 
-In the multi-process mode, follower processes run as web application servers first. Then, the leader process issues HTTP requests to all followers, and followers start their workload. The leader periodically checks whether each follower's job has finished. After all the work has been done, the leader collects the result and reports it to the user.
+```console
+# Use `--save` option to save the execution context.
+./oval --size 4k-16k --time 5s --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --endpoint http://localhost:9000 --save test.json
+2023/02/24 13:28:14 runner.go:110: Clearing bucket 'test-bucket'.
+2023/02/24 13:28:14 runner.go:115: Bucket cleared successfully.
+2023/02/24 13:28:14 runner.go:110: Clearing bucket 'test-bucket2'.
+2023/02/24 13:28:14 runner.go:115: Bucket cleared successfully.
+2023/02/24 13:28:14 worker.go:33: Worker ID = 0x3c40, Key = [ov0000000000, ov00000000ff]
+2023/02/24 13:28:14 worker.go:33: Worker ID = 0x3c41, Key = [ov0001000000, ov00010000ff]
+2023/02/24 13:28:14 worker.go:33: Worker ID = 0x3c42, Key = [ov0002000000, ov00020000ff]
+2023/02/24 13:28:14 worker.go:33: Worker ID = 0x3c43, Key = [ov0003000000, ov00030000ff]
+2023/02/24 13:28:14 runner.go:158: Validation start.
+2023/02/24 13:28:19 runner.go:202: Validation finished.
+2023/02/24 13:28:19 stat.go:37: Statistics report.
+2023/02/24 13:28:19 stat.go:38: put count: 627
+2023/02/24 13:28:19 stat.go:39: get count: 571
+2023/02/24 13:28:19 stat.go:40: get (for validation) count: 1208
+2023/02/24 13:28:19 stat.go:41: list count: 0
+2023/02/24 13:28:19 stat.go:42: delete count: 572
+
+# Use ``--load` option to load the saved context.
+$ ./oval --time 3s --load test.json
+2023/02/24 13:28:22 worker.go:33: Worker ID = 0x3c40, Key = [ov0000000000, ov00000000ff]
+2023/02/24 13:28:22 worker.go:33: Worker ID = 0x3c41, Key = [ov0001000000, ov00010000ff]
+2023/02/24 13:28:22 worker.go:33: Worker ID = 0x3c42, Key = [ov0002000000, ov00020000ff]
+2023/02/24 13:28:22 worker.go:33: Worker ID = 0x3c43, Key = [ov0003000000, ov00030000ff]
+2023/02/24 13:28:22 runner.go:158: Validation start.
+2023/02/24 13:28:25 runner.go:202: Validation finished.
+2023/02/24 13:28:25 stat.go:37: Statistics report.
+2023/02/24 13:28:25 stat.go:38: put count: 364
+2023/02/24 13:28:25 stat.go:39: get count: 318
+2023/02/24 13:28:25 stat.go:40: get (for validation) count: 671
+2023/02/24 13:28:25 stat.go:41: list count: 0
+2023/02/24 13:28:25 stat.go:42: delete count: 298
+```
 
 ## Internals
 
