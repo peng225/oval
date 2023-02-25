@@ -27,7 +27,7 @@ func DecideSize(minSize, maxSize int) (int, error) {
 	if minSize%dataUnitSize != 0 {
 		return 0, fmt.Errorf("minSize should be a multiple of %v.", dataUnitSize)
 	}
-	if maxSize != 0 && maxSize%dataUnitSize != 0 {
+	if maxSize%dataUnitSize != 0 {
 		return 0, fmt.Errorf("maxSize should be a multiple of %v.", dataUnitSize)
 	}
 	if maxSize < minSize {
@@ -58,7 +58,7 @@ func DecideSize(minSize, maxSize int) (int, error) {
 			F_X^{-1}(y) = -log2(1-0.5*y)
 
 		Now generating y from the uniform distribution Unif[0, 1)
-		and getting the value of F^{-1}_Y(y)
+		and getting the value of F_X^{-1}(y)
 		is equivalent to getting a sample from f_X(x).
 	*/
 	y := rand.Float64()

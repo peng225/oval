@@ -10,18 +10,18 @@ import (
 
 func ParseSize(s string) (int, int, error) {
 	s = strings.ToLower(s)
-	var sizesStr []string
+	var sizeStrs []string
 	if strings.Contains(s, "-") {
-		sizesStr = strings.Split(s, "-")
-		if len(sizesStr) != 2 {
+		sizeStrs = strings.Split(s, "-")
+		if len(sizeStrs) != 2 {
 			return 0, 0, fmt.Errorf("Illegal size format: %v\n", s)
 		}
 	} else {
-		sizesStr = []string{s, s}
+		sizeStrs = []string{s, s}
 	}
 
 	sizes := make([]int, 2)
-	for i, sizeStr := range sizesStr {
+	for i, sizeStr := range sizeStrs {
 		var err error
 		sizes[i], err = parseSizeUnit(sizeStr)
 		if err != nil {
