@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"strings"
 	"time"
@@ -33,7 +34,41 @@ func DecideSize(minSize, maxSize int) (int, error) {
 		return 0, errors.New("maxSize should be larger than or equal to minSize.")
 	}
 
-	return minSize + dataUnitSize*rand.Intn((maxSize-minSize)/dataUnitSize+1), nil
+	/*
+		It would be nice if the returned value of this function is
+		a random variable whose distribution is something like
+		an exponential distribution.
+
+		Because the returned value has both an upper and lower bound,
+		the domain of the density function is finite,
+		thus it cannot be an exponential distribution.
+
+		However, we can use a similar distribution.
+
+		Suppose X is a random variable whose density function is
+			f_X(x) = 2^{1-x}  (0 \le x \lt 1)
+		and the cumulative distribution function is
+			F_X(x) = 2(1-2^{-x})  (0 \le x \lt 1)
+
+		We can generate samples from this distribution
+		by inverse transform sampling.
+		cf. https://en.wikipedia.org/wiki/Inverse_transform_sampling
+
+		The inverse function of F_X(x) is
+			F_X^{-1}(y) = -log2(1-0.5*y)
+
+		Now generating y from the uniform distribution Unif[0, 1)
+		and getting the value of F^{-1}_Y(y)
+		is equivalent to getting a sample from f_X(x).
+	*/
+	y := rand.Float64()
+	x := -math.Log2(1 - 0.5*y)
+
+	/*
+		x is in [0, 1) whose density function is f_X(x).
+		We should transform it to the integer value in [minSize, maxSize].
+	*/
+	return minSize + dataUnitSize*int(float64((maxSize-minSize)/dataUnitSize+1)*x), nil
 }
 
 func Generate(dataSize, workerID, offset int, bucketName string, obj *object.Object) (io.ReadSeeker, error) {
