@@ -113,6 +113,7 @@ func (w *Worker) Put(multipartThresh int) error {
 			log.Println(err.Error())
 			return err
 		}
+		w.st.AddMPUploadCount(int64(len(partBodies)))
 	}
 	w.st.AddPutCount()
 
