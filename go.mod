@@ -9,7 +9,7 @@ require (
 	github.com/dsnet/golib/memfile v1.0.0
 	github.com/pkg/profile v1.7.0
 	github.com/spf13/cobra v1.6.1
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.4
 )
 
 require (
