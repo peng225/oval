@@ -32,6 +32,10 @@ run-multi-process: $(OVAL)
 run-leader: $(OVAL)
 	$(OVAL) leader --follower_list "http://localhost:8080,http://localhost:8081,http://localhost:8082" --size 4k-12m --time $(EXEC_TIME) --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --ope_ratio 8,8,8,1 --endpoint http://localhost:9000 --multipart_thresh 5m
 
+.PHONY: run-leader-with-config
+run-leader-with-config: $(OVAL)
+	$(OVAL) leader --config test_config.json --size 4k-12m --time $(EXEC_TIME) --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2" --ope_ratio 8,8,8,1 --endpoint http://localhost:9000 --multipart_thresh 5m
+
 .PHONY: run-followers
 run-followers: $(OVAL)
 	$(OVAL) follower --follower_port 8080 &
