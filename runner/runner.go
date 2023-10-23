@@ -42,10 +42,12 @@ type Runner struct {
 	st              stat.Stat
 	processID       int
 	multipartThresh int
+	caCertFileName  string
 }
 
 func NewRunner(execContext *ExecutionContext, opeRatio []float64, timeInMs int64,
-	profiler bool, loadFileName string, processID, multipartThresh int) *Runner {
+	profiler bool, loadFileName string, processID, multipartThresh int,
+	caCertFileName string) *Runner {
 	runner := &Runner{
 		execContext:     execContext,
 		opeRatio:        opeRatio,
@@ -54,12 +56,14 @@ func NewRunner(execContext *ExecutionContext, opeRatio []float64, timeInMs int64
 		loadFileName:    loadFileName,
 		processID:       processID,
 		multipartThresh: multipartThresh,
+		caCertFileName:  caCertFileName,
 	}
 	runner.init()
 	return runner
 }
 
-func NewRunnerFromLoadFile(loadFileName string, opeRatio []float64, timeInMs int64, profiler bool, multipartThresh int) *Runner {
+func NewRunnerFromLoadFile(loadFileName string, opeRatio []float64, timeInMs int64,
+	profiler bool, multipartThresh int, caCertFileName string) *Runner {
 	if loadFileName == "" {
 		log.Fatal("loadFileName is empty.")
 	}
@@ -68,7 +72,7 @@ func NewRunnerFromLoadFile(loadFileName string, opeRatio []float64, timeInMs int
 		log.Fatal(err)
 	}
 	ec := loadSavedContext(loadFileName)
-	return NewRunner(ec, opeRatio, timeInMs, profiler, loadFileName, 0, multipartThresh)
+	return NewRunner(ec, opeRatio, timeInMs, profiler, loadFileName, 0, multipartThresh, caCertFileName)
 }
 
 func loadSavedContext(loadFileName string) *ExecutionContext {
@@ -87,7 +91,7 @@ func loadSavedContext(loadFileName string) *ExecutionContext {
 }
 
 func (r *Runner) init() {
-	r.client = s3_client.NewS3Client(r.execContext.Endpoint)
+	r.client = s3_client.NewS3Client(r.execContext.Endpoint, r.caCertFileName)
 	for _, bucketName := range r.execContext.BucketNames {
 		err := r.client.HeadBucket(bucketName)
 		if err != nil {

@@ -2,9 +2,14 @@ package s3_client
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"fmt"
 	"io"
 	"log"
+	"net/http"
+	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -32,10 +37,51 @@ func (nf *NotFound) Error() string {
 	return nf.errorMessage
 }
 
-func NewS3Client(endpoint string) *S3Client {
+func getTLSClient(caCertFileName string) (*http.Client, error) {
+	cert, err := os.ReadFile(caCertFileName)
+	if err != nil {
+		return nil, err
+	}
+
+	caCertPool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, err
+	}
+
+	if !caCertPool.AppendCertsFromPEM(cert) {
+		return nil, fmt.Errorf("failed to add ca cert: cert=%v", cert)
+	}
+
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return nil, fmt.Errorf("invalid default transport")
+	}
+
+	transport := defaultTransport.Clone()
+
+	transport.TLSClientConfig = &tls.Config{
+		RootCAs: caCertPool,
+	}
+
+	client := &http.Client{
+		Transport: transport,
+	}
+
+	return client, nil
+}
+
+func NewS3Client(endpoint, caCertFileName string) *S3Client {
 	s := &S3Client{}
 	var cfg aws.Config
 	var err error
+	client := http.DefaultClient
+
+	if caCertFileName != "" {
+		client, err = getTLSClient(caCertFileName)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 	if endpoint != "" {
 		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 			return aws.Endpoint{
@@ -45,12 +91,15 @@ func NewS3Client(endpoint string) *S3Client {
 				HostnameImmutable: true,
 			}, nil
 		})
-		cfg, err = config.LoadDefaultConfig(context.Background(), config.WithEndpointResolverWithOptions(customResolver))
+		cfg, err = config.LoadDefaultConfig(context.Background(),
+			config.WithEndpointResolverWithOptions(customResolver),
+			config.WithHTTPClient(client))
 		if err != nil {
 			log.Fatal(err)
 		}
 	} else {
-		cfg, err = config.LoadDefaultConfig(context.Background())
+		cfg, err = config.LoadDefaultConfig(context.Background(),
+			config.WithHTTPClient(client))
 		if err != nil {
 			log.Fatal(err)
 		}
