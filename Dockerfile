@@ -1,5 +1,5 @@
 # Stage 1
-FROM golang:1.19 AS builder
+FROM golang:1.20 AS builder
 
 WORKDIR /go/src/github.com/
 COPY . oval
