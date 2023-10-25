@@ -11,8 +11,10 @@ on:
     - '**.md'
 
 jobs:
-
-  build:
+  local-run:
+    strategy:
+      matrix:
+        secure: ["TRUE", "FALSE"]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -20,15 +22,23 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.19
+        go-version: "1.20"
 
     - name: Locally run oval with MinIO
       env:
         AWS_ACCESS_KEY_ID: "minioadmin"
         AWS_SECRET_ACCESS_KEY: "minioadmin"
       run: |
-        make start-minio
-        make run
-        make run-multi-process
-        make run-leader-with-config
+        S3_ENDPOINT="http://localhost:9000"
+        CERT_CONFIG=""
+        if [ "${{ matrix.secure }}" == "TRUE" ]; then
+          S3_ENDPOINT="https://localhost:9000"
+          CERT_CONFIG="--cacert=test/certs/public.crt"
+          make start-minio-https
+        else
+          make start-minio
+        fi
+        make run S3_ENDPOINT=${S3_ENDPOINT} CERT_CONFIG=${CERT_CONFIG}
+        make run-multi-process S3_ENDPOINT=${S3_ENDPOINT} CERT_CONFIG=${CERT_CONFIG}
+        make run-leader-with-config S3_ENDPOINT=${S3_ENDPOINT} CERT_CONFIG=${CERT_CONFIG}
         make stop-minio

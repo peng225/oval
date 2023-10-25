@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"log"
+	"os"
 
 	"github.com/peng225/oval/multiprocess"
 	"github.com/spf13/cobra"
@@ -25,7 +26,15 @@ var followerCmd = &cobra.Command{
 			log.Fatalf("Invalid follower port. followerPort = %d", followerPort)
 		}
 
-		multiprocess.StartServer(followerPort)
+		if caCertFileName != "" {
+			// Check if a file with the name "caCertFileName" exists.
+			_, err := os.Stat(caCertFileName)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+
+		multiprocess.StartServer(followerPort, caCertFileName)
 		// Follower processes do not go beyond this line.
 	},
 }
@@ -43,6 +52,7 @@ func init() {
 	// is called directly, e.g.:
 	// followerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	followerCmd.Flags().IntVar(&followerPort, "follower_port", invalidPortNumber, "TCP port number to which the follower listens.")
+	followerCmd.Flags().StringVar(&caCertFileName, "cacert", "", "File name of CA certificate.")
 
 	followerCmd.MarkFlagRequired("follower_port")
 }

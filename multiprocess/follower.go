@@ -15,13 +15,14 @@ import (
 type State int
 
 var (
-	run       *runner.Runner
-	runnerErr error
-	cancel    chan struct{}
-	done      chan struct{}
-	state     State
-	mu        sync.Mutex
-	watchDog  int
+	run            *runner.Runner
+	runnerErr      error
+	cancel         chan struct{}
+	done           chan struct{}
+	state          State
+	mu             sync.Mutex
+	watchDog       int
+	caCertFileName string
 )
 
 const (
@@ -31,8 +32,9 @@ const (
 	finished
 )
 
-func StartServer(port int) {
+func StartServer(port int, cert string) {
 	portStr := strconv.Itoa(port)
+	caCertFileName = cert
 
 	http.HandleFunc("/init", initHandler)
 	http.HandleFunc("/start", startHandler)
@@ -88,7 +90,8 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 	state = running
 
 	go func() {
-		run = runner.NewRunner(&param.Context, param.OpeRatio, param.TimeInMs, false, "", param.ID, param.MultipartThresh)
+		run = runner.NewRunner(&param.Context, param.OpeRatio, param.TimeInMs, false, "",
+			param.ID, param.MultipartThresh, caCertFileName)
 		runnerErr = run.Run(cancel)
 		mu.Lock()
 		defer mu.Unlock()

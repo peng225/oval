@@ -23,6 +23,7 @@ var (
 	profiler           bool
 	saveFileName       string
 	loadFileName       string
+	caCertFileName     string
 
 	minSize, maxSize int
 	opeRatio         []float64
@@ -57,11 +58,21 @@ If no subcommands are specified, Oval runs in the single-process mode.`,
 			}
 		}
 
+		if caCertFileName != "" {
+			// Check if a file with the name "caCertFileName" exists.
+			_, err = os.Stat(caCertFileName)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+
 		var r *runner.Runner
 		if loadFileName == "" {
-			r = runner.NewRunner(execContext, opeRatio, execTime.Milliseconds(), profiler, loadFileName, 0, multipartThresh)
+			r = runner.NewRunner(execContext, opeRatio, execTime.Milliseconds(),
+				profiler, loadFileName, 0, multipartThresh, caCertFileName)
 		} else {
-			r = runner.NewRunnerFromLoadFile(loadFileName, opeRatio, execTime.Milliseconds(), profiler, multipartThresh)
+			r = runner.NewRunnerFromLoadFile(loadFileName, opeRatio, execTime.Milliseconds(),
+				profiler, multipartThresh, caCertFileName)
 		}
 		err = r.Run(nil)
 		if err != nil {
@@ -100,6 +111,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&profiler, "profiler", false, "Enable profiler.")
 	rootCmd.Flags().StringVar(&saveFileName, "save", "", "File name to save the execution context.")
 	rootCmd.Flags().StringVar(&loadFileName, "load", "", "File name to load the execution context.")
+	rootCmd.Flags().StringVar(&caCertFileName, "cacert", "", "File name of CA certificate.")
 
 	rootCmd.MarkFlagsMutuallyExclusive("bucket", "load")
 	rootCmd.MarkFlagsMutuallyExclusive("endpoint", "load")
