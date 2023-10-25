@@ -39,7 +39,8 @@ func (suite *PatternSuite) TestGenerateDataUnitSuccess() {
 	workerID := 100
 
 	suite.Equal(nil, generateDataUnit(4, workerID, testBucketName, obj, suite.f))
-	suite.f.Seek(0, 0)
+	_, err := suite.f.Seek(0, 0)
+	suite.NoError(err)
 	data, err := io.ReadAll(suite.f)
 	suite.NoError(err)
 	suite.Equal(dataUnitSize, len(data))
@@ -129,7 +130,7 @@ func (suite *PatternSuite) TestGenerateLongBucketName() {
 
 	// 1st data unit
 	// bucketName
-	suite.Equal(append([]byte(testLongBucketName[:object.MaxBucketNameLength])),
+	suite.Equal([]byte(testLongBucketName[:object.MaxBucketNameLength]),
 		data[0:object.MaxBucketNameLength])
 	current := object.MaxBucketNameLength
 	// keyName
@@ -147,7 +148,7 @@ func (suite *PatternSuite) TestGenerateLongBucketName() {
 	// 2nd data unit
 	current = dataUnitSize
 	// bucketName
-	suite.Equal(append([]byte(testLongBucketName[:object.MaxBucketNameLength])),
+	suite.Equal([]byte(testLongBucketName[:object.MaxBucketNameLength]),
 		data[current:current+object.MaxBucketNameLength])
 	current += object.MaxBucketNameLength
 	// keyName

@@ -86,7 +86,10 @@ func loadSavedContext(loadFileName string) *ExecutionContext {
 		log.Fatal(err)
 	}
 	ec := &ExecutionContext{}
-	json.Unmarshal(savedContext, ec)
+	err = json.Unmarshal(savedContext, ec)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return ec
 }
 
@@ -123,7 +126,6 @@ func (r *Runner) init() {
 
 	if r.loadFileName == "" {
 		r.execContext.Workers = make([]Worker, r.execContext.NumWorker)
-		rand.Seed(time.Now().UnixNano())
 		startID := rand.Intn(maxWorkerID)
 		r.execContext.StartWorkerID = startID
 		for i := range r.execContext.Workers {
@@ -144,13 +146,13 @@ func (r *Runner) init() {
 			r.execContext.Workers[i].ShowInfo()
 		}
 	} else {
-		for i, _ := range r.execContext.Workers {
+		for i := range r.execContext.Workers {
 			r.execContext.Workers[i].id = (r.execContext.StartWorkerID + i) % maxWorkerID
 			r.execContext.Workers[i].minSize = r.execContext.MinSize
 			r.execContext.Workers[i].maxSize = r.execContext.MaxSize
 			r.execContext.Workers[i].client = r.client
 			r.execContext.Workers[i].st = &r.st
-			for j, _ := range r.execContext.Workers[i].BucketsWithObject {
+			for j := range r.execContext.Workers[i].BucketsWithObject {
 				r.execContext.Workers[i].BucketsWithObject[j].ObjectMeta.TidyUp()
 			}
 			r.execContext.Workers[i].ShowInfo()
@@ -227,7 +229,6 @@ const (
 )
 
 func (r *Runner) selectOperation() Operation {
-	rand.Seed(time.Now().UnixNano())
 	randVal := rand.Float64()
 	if randVal < r.opeRatio[0] {
 		return Put

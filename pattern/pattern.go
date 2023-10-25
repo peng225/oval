@@ -120,7 +120,13 @@ func generateDataUnit(unitCount, workerID int, bucketName string, obj *object.Ob
 	unixTime := dt.UnixMicro()
 	binary.LittleEndian.PutUint32(numBinBuf[8:], uint32(workerID))
 	binary.LittleEndian.PutUint64(numBinBuf[12:], uint64(unixTime))
-	writer.Write(numBinBuf)
+	n, err = writer.Write(numBinBuf)
+	if err != nil {
+		return err
+	}
+	if n != dataUnitHeaderSizeWithoutBucketAndKey {
+		return fmt.Errorf("the data unit header without bucket name and key was not written correctly. n = %d", n)
+	}
 
 	unitBodyStartPos := object.MaxBucketNameLength + object.MaxKeyLength + dataUnitHeaderSizeWithoutBucketAndKey
 	tmpData := make([]byte, 4)
@@ -186,7 +192,6 @@ func validDataUnit(unitCount, workerID int, expectedBucketName string, obj *obje
 	}
 
 	actualWorkerID := int(binary.LittleEndian.Uint32(data[current : current+4]))
-	current = current + 4
 	if workerID != actualWorkerID {
 		errMsg += fmt.Sprintf("- WorkerID is wrong. (expected = \"%d\", actual = \"%d\")\n",
 			workerID, actualWorkerID)
