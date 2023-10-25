@@ -10,6 +10,9 @@ MINIO_CERTDIR := $(shell git rev-parse --show-toplevel)/test/certs
 CERTGEN_VERSION := v1.2.1
 CERTGEN := $(BINDIR)/certgen-$(CERTGEN_VERSION)
 
+GOLANGCI_LINT_VERSION := v1.55.1
+GOLANGCI_LINT := $(BINDIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+
 S3_ENDPOINT ?= http://localhost:9000
 CERT_CONFIG ?= ""
 
@@ -30,6 +33,14 @@ $(MINIO_CERTDIR):
 .PHONY: image
 image:
 	docker build . --file Dockerfile --tag $(IMAGE_NAME)
+
+$(GOLANGCI_LINT): | $(BINDIR)
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b . $(GOLANGCI_LINT_VERSION)
+	mv golangci-lint $(GOLANGCI_LINT)
+
+.PHONY: lint
+lint: | $(GOLANGCI_LINT)
+	$(GOLANGCI_LINT) run
 
 .PHONY: test
 test: $(OVAL)

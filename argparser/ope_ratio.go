@@ -24,7 +24,7 @@ func ParseOpeRatio(opeRatioStr string) ([]float64, error) {
 		ratio[i] = float64(intV)
 		sum += ratio[i]
 	}
-	for i, _ := range ratio {
+	for i := range ratio {
 		ratio[i] /= sum
 	}
 	return ratio, nil

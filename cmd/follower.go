@@ -54,5 +54,8 @@ func init() {
 	followerCmd.Flags().IntVar(&followerPort, "follower_port", invalidPortNumber, "TCP port number to which the follower listens.")
 	followerCmd.Flags().StringVar(&caCertFileName, "cacert", "", "File name of CA certificate.")
 
-	followerCmd.MarkFlagRequired("follower_port")
+	err := followerCmd.MarkFlagRequired("follower_port")
+	if err != nil {
+		log.Fatal(err)
+	}
 }
