@@ -46,6 +46,11 @@ func StartServer(port int, cert string) {
 
 func initHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Received a init request.")
+	defer func() {
+		if r.Body != nil {
+			r.Body.Close()
+		}
+	}()
 	if r.Method != http.MethodPost {
 		log.Printf("Invalid method: %s\n", r.Method)
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -62,6 +67,11 @@ func initHandler(w http.ResponseWriter, r *http.Request) {
 
 func startHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Received a start request.")
+	defer func() {
+		if r.Body != nil {
+			r.Body.Close()
+		}
+	}()
 	if r.Method != http.MethodPost {
 		log.Printf("Invalid method: %s\n", r.Method)
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -74,7 +84,6 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Fatal(err)
@@ -154,13 +163,17 @@ func resultHandler(w http.ResponseWriter, r *http.Request) {
 
 func cancelHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Received a cancel request.")
+	defer func() {
+		if r.Body != nil {
+			r.Body.Close()
+		}
+	}()
 	if r.Method != http.MethodPost {
 		log.Printf("Invalid method: %s\n", r.Method)
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
-	defer r.Body.Close()
 	_, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Fatal(err)

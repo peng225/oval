@@ -37,6 +37,14 @@ func (nf *NotFound) Error() string {
 	return nf.errorMessage
 }
 
+type Conflict struct {
+	errorMessage string
+}
+
+func (cf *Conflict) Error() string {
+	return cf.errorMessage
+}
+
 func getTLSClient(caCertFileName string) (*http.Client, error) {
 	cert, err := os.ReadFile(caCertFileName)
 	if err != nil {
@@ -116,6 +124,12 @@ func (s *S3Client) CreateBucket(bucketName string) error {
 		Bucket: &bucketName,
 	})
 	if err != nil {
+		var baoby *types.BucketAlreadyOwnedByYou
+		if errors.As(err, &baoby) {
+			err = &Conflict{
+				errorMessage: err.Error(),
+			}
+		}
 		return err
 	}
 	return nil

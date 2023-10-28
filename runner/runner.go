@@ -95,35 +95,10 @@ func loadSavedContext(loadFileName string) *ExecutionContext {
 
 func (r *Runner) init() {
 	r.client = s3_client.NewS3Client(r.execContext.Endpoint, r.caCertFileName)
-	for _, bucketName := range r.execContext.BucketNames {
-		err := r.client.HeadBucket(bucketName)
-		if err != nil {
-			var nf *s3_client.NotFound
-			if errors.As(err, &nf) {
-				if r.loadFileName != "" {
-					log.Fatal("HeadBucket failed despite \"load\" parameter was set.")
-				}
-				log.Println("Bucket \"" + bucketName + "\" not found. Creating...")
-				err = r.client.CreateBucket(bucketName)
-				if err != nil {
-					log.Fatal(err)
-				}
-				log.Println("Bucket created successfully.")
-			} else {
-				log.Fatal(err)
-			}
-		} else {
-			if r.loadFileName == "" {
-				log.Printf("Clearing bucket '%s'.\n", bucketName)
-				err = r.client.ClearBucket(bucketName, fmt.Sprintf("%s%02x", object.KeyShortPrefix, r.processID))
-				if err != nil {
-					log.Fatal(err)
-				}
-				log.Println("Bucket cleared successfully.")
-			}
-		}
+	err := r.initBucket()
+	if err != nil {
+		log.Fatal(err)
 	}
-
 	if r.loadFileName == "" {
 		r.execContext.Workers = make([]Worker, r.execContext.NumWorker)
 		startID := rand.Intn(maxWorkerID)
@@ -158,6 +133,45 @@ func (r *Runner) init() {
 			r.execContext.Workers[i].ShowInfo()
 		}
 	}
+}
+
+func (r *Runner) initBucket() error {
+	for _, bucketName := range r.execContext.BucketNames {
+		err := r.client.HeadBucket(bucketName)
+		if err != nil {
+			var nf *s3_client.NotFound
+			if errors.As(err, &nf) {
+				if r.loadFileName != "" {
+					return fmt.Errorf(`HeadBucket failed despite "load" parameter was set.`)
+				}
+				log.Printf(`Bucket "%s" not found. Creating...`, bucketName)
+				err = r.client.CreateBucket(bucketName)
+				if err != nil {
+					// Bucket creation may be executed by multiple follower processes.
+					var cf *s3_client.Conflict
+					if errors.As(err, &cf) {
+						log.Printf(`Bucket "%s" already exists.`, bucketName)
+					} else {
+						return err
+					}
+				} else {
+					log.Println("Bucket created successfully.")
+				}
+			} else {
+				return err
+			}
+		} else {
+			if r.loadFileName == "" {
+				log.Printf("Clearing bucket '%s'.\n", bucketName)
+				err = r.client.ClearBucket(bucketName, fmt.Sprintf("%s%02x", object.KeyShortPrefix, r.processID))
+				if err != nil {
+					return err
+				}
+				log.Println("Bucket cleared successfully.")
+			}
+		}
+	}
+	return nil
 }
 
 func (r *Runner) Run(cancel chan struct{}) error {
