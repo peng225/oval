@@ -17,8 +17,8 @@ type State int
 var (
 	run            *runner.Runner
 	runnerErr      error
-	cancel         chan struct{}
 	done           chan struct{}
+	cancel         chan struct{}
 	state          State
 	mu             sync.Mutex
 	watchDog       int
@@ -26,43 +26,20 @@ var (
 )
 
 const (
-	initial State = iota
+	stopped State = iota
 	running
-	canceled
-	finished
+	cancelling
 )
 
 func StartServer(port int, cert string) {
 	portStr := strconv.Itoa(port)
 	caCertFileName = cert
 
-	http.HandleFunc("/init", initHandler)
 	http.HandleFunc("/start", startHandler)
 	http.HandleFunc("/result", resultHandler)
 	http.HandleFunc("/cancel", cancelHandler)
 	log.Printf("Start server. port = %s\n", portStr)
 	log.Println(http.ListenAndServe(":"+portStr, nil))
-}
-
-func initHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Received a init request.")
-	defer func() {
-		if r.Body != nil {
-			r.Body.Close()
-		}
-	}()
-	if r.Method != http.MethodPost {
-		log.Printf("Invalid method: %s\n", r.Method)
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	mu.Lock()
-	defer mu.Unlock()
-	state = initial
-	runnerErr = nil
-	cancel = make(chan struct{})
-	done = make(chan struct{})
-	watchDog = 0
 }
 
 func startHandler(w http.ResponseWriter, r *http.Request) {
@@ -79,24 +56,37 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if state != initial {
-		log.Printf("Invalid state %d.\n", state)
+	if state == running {
+		// This block exists to make startHandler idempotent.
+		log.Println("Workload is already running.")
+		return
+	} else if state != stopped {
+		log.Printf("Invalid state. (state=%v)", state)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	var param StartFollowerParameter
 	err = json.Unmarshal(body, &param)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 	printStartFollowerParameter(&param)
 
 	state = running
+	runnerErr = nil
+	done = make(chan struct{})
+	cancel = make(chan struct{})
+	watchDog = 0
 
 	go func() {
 		run = runner.NewRunner(&param.Context, param.OpeRatio, param.TimeInMs, false, "",
@@ -104,7 +94,7 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 		runnerErr = run.Run(cancel)
 		mu.Lock()
 		defer mu.Unlock()
-		state = finished
+		state = stopped
 		close(done)
 	}()
 
@@ -132,6 +122,7 @@ func printStartFollowerParameter(param *StartFollowerParameter) {
 	log.Printf("Context: %v\n", param.Context)
 	log.Printf("OpeRatio: %v\n", param.OpeRatio)
 	log.Printf("TimeInMs: %v\n", param.TimeInMs)
+	log.Printf("MultipartThresh: %v\n", param.MultipartThresh)
 }
 
 func resultHandler(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +134,7 @@ func resultHandler(w http.ResponseWriter, r *http.Request) {
 
 	watchDog += 1
 
-	if state != finished {
+	if state != stopped {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -155,9 +146,11 @@ func resultHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	writtenLength, err := w.Write(data)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
 	} else if writtenLength != len(data) {
-		log.Fatalf("Invalid written length. writtenLength = %v", writtenLength)
+		log.Printf("Invalid written length. writtenLength = %d\n", writtenLength)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
@@ -176,7 +169,9 @@ func cancelHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	cancelWorkload()
@@ -186,13 +181,11 @@ func cancelWorkload() {
 	mu.Lock()
 	defer mu.Unlock()
 	if state != running {
-		log.Printf("Invalid state %d.\n", state)
+		log.Printf("Workload is not running. (state = %v)\n", state)
 		return
 	}
 
 	close(cancel)
-	if state != finished {
-		state = canceled
-	}
+	state = cancelling
 	log.Println("Canceled the workload.")
 }

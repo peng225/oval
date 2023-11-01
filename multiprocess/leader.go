@@ -102,7 +102,7 @@ func GetResultFromAllFollower(followerList []string) (bool, string, error) {
 					canceled = true
 					cancelErr := cancelFollowerWorkload(followerList)
 					if cancelErr != nil {
-						log.Fatal(cancelErr)
+						log.Printf("Failed to cancel followers' workload. err: %v\n", cancelErr)
 					}
 				}
 			}
