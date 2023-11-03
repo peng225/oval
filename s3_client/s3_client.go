@@ -1,6 +1,7 @@
 package s3_client
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -18,7 +19,8 @@ import (
 )
 
 type S3Client struct {
-	client *s3.Client
+	client          *s3.Client
+	multipartThresh int
 }
 
 type NoSuchKey struct {
@@ -78,8 +80,10 @@ func getTLSClient(caCertFileName string) (*http.Client, error) {
 	return client, nil
 }
 
-func NewS3Client(endpoint, caCertFileName string) *S3Client {
-	s := &S3Client{}
+func NewS3Client(endpoint, caCertFileName string, multipartThresh int) *S3Client {
+	s := &S3Client{
+		multipartThresh: multipartThresh,
+	}
 	var cfg aws.Config
 	var err error
 	client := http.DefaultClient
@@ -160,42 +164,51 @@ func (s *S3Client) ClearBucket(bucketName, prefix string) error {
 	return nil
 }
 
-func (s *S3Client) PutObject(bucketName, key string, body io.ReadSeeker) error {
-	_, err := s.client.PutObject(context.Background(), &s3.PutObjectInput{
-		Bucket: &bucketName,
-		Key:    &key,
-		Body:   body,
-	})
-	if err != nil {
-		return err
+func (s *S3Client) PutObject(bucketName, key string, body []byte) (int, error) {
+	var err error
+	var partCount int
+	if len(body) <= s.multipartThresh {
+		_, err = s.client.PutObject(context.Background(), &s3.PutObjectInput{
+			Bucket: &bucketName,
+			Key:    &key,
+			Body:   bytes.NewReader(body),
+		})
+		if err != nil {
+			return 0, err
+		}
+		partCount = 1
+	} else {
+		partCount, err = s.multipartUpload(bucketName, key, body)
 	}
-	return nil
+	return partCount, err
 }
 
-type PartBody struct {
-	Body io.ReadSeeker
-	Size int
-}
-
-func (s *S3Client) MultipartUpload(bucketName, key string, partBodies []PartBody) error {
+func (s *S3Client) multipartUpload(bucketName, key string, body []byte) (int, error) {
 	ctx := context.Background()
 	cmuOutput, err := s.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 		Bucket: &bucketName,
 		Key:    &key,
 	})
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	partList := make([]types.CompletedPart, 0)
-	for i, partBody := range partBodies {
+	remainingSize := int64(len(body))
+	partNumber := int32(1)
+	for remainingSize > 0 {
+		partSize := remainingSize
+		if int64(s.multipartThresh) < partSize {
+			partSize = int64(s.multipartThresh)
+		}
+
 		upOutput, err := s.client.UploadPart(ctx, &s3.UploadPartInput{
 			Bucket:        &bucketName,
 			Key:           &key,
-			Body:          partBody.Body,
-			PartNumber:    int32(i + 1),
+			Body:          bytes.NewReader(body[:partSize]),
+			PartNumber:    partNumber,
 			UploadId:      cmuOutput.UploadId,
-			ContentLength: int64(partBody.Size),
+			ContentLength: partSize,
 		})
 		if err != nil {
 			_, abortErr := s.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
@@ -206,12 +219,15 @@ func (s *S3Client) MultipartUpload(bucketName, key string, partBodies []PartBody
 			if abortErr != nil {
 				log.Fatalf("UploadPart err: %v, AbortMultipartUpload: %v", err, abortErr)
 			}
-			return err
+			return 0, err
 		}
+		body = body[partSize:]
 		partList = append(partList, types.CompletedPart{
-			PartNumber: int32(i + 1),
+			PartNumber: partNumber,
 			ETag:       upOutput.ETag,
 		})
+		partNumber++
+		remainingSize -= partSize
 	}
 
 	_, err = s.client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
@@ -231,9 +247,9 @@ func (s *S3Client) MultipartUpload(bucketName, key string, partBodies []PartBody
 		if abortErr != nil {
 			log.Fatalf("CompleteMultipartUpload err: %v, AbortMultipartUpload: %v", err, abortErr)
 		}
-		return err
+		return 0, err
 	}
-	return nil
+	return int(partNumber - 1), nil
 }
 
 func (s *S3Client) GetObject(bucketName, key string) (io.ReadCloser, error) {

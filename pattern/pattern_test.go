@@ -1,10 +1,9 @@
 package pattern
 
 import (
-	"io"
+	"bytes"
 	"testing"
 
-	"github.com/dsnet/golib/memfile"
 	"github.com/peng225/oval/object"
 	"github.com/stretchr/testify/suite"
 )
@@ -20,11 +19,9 @@ const (
 /*******************************/
 type PatternSuite struct {
 	suite.Suite
-	f io.ReadWriteSeeker
 }
 
 func (suite *PatternSuite) SetupTest() {
-	suite.f = memfile.New([]byte{})
 }
 
 /*******************************/
@@ -38,10 +35,7 @@ func (suite *PatternSuite) TestGenerateDataUnitSuccess() {
 	}
 	workerID := 100
 
-	suite.Equal(nil, generateDataUnit(4, workerID, testBucketName, obj, suite.f))
-	_, err := suite.f.Seek(0, 0)
-	suite.NoError(err)
-	data, err := io.ReadAll(suite.f)
+	data, err := generateDataUnit(4, workerID, testBucketName, obj)
 	suite.NoError(err)
 	suite.Equal(dataUnitSize, len(data))
 
@@ -71,11 +65,9 @@ func (suite *PatternSuite) TestGenerateSuccess() {
 	workerID := 100
 
 	size := 512
-	readSeeker, err := Generate(size, workerID, 0, testBucketName, obj)
+	data, err := Generate(size, workerID, testBucketName, obj)
 	suite.NoError(err)
-	suite.Equal(512, size)
-	data, err := io.ReadAll(readSeeker)
-	suite.NoError(err)
+	suite.Equal(512, len(data))
 
 	// 1st data unit
 	// bucketName
@@ -122,11 +114,9 @@ func (suite *PatternSuite) TestGenerateLongBucketName() {
 	workerID := 100
 
 	size := 512
-	readSeeker, err := Generate(size, workerID, 0, testLongBucketName, obj)
+	data, err := Generate(size, workerID, testLongBucketName, obj)
 	suite.NoError(err)
-	suite.Equal(512, size)
-	data, err := io.ReadAll(readSeeker)
-	suite.NoError(err)
+	suite.Equal(512, len(data))
 
 	// 1st data unit
 	// bucketName
@@ -172,11 +162,7 @@ func (suite *PatternSuite) TestValidDataUnitSuccess() {
 	}
 	workerID := 100
 
-	err := generateDataUnit(4, workerID, testBucketName, obj, suite.f)
-	suite.NoError(err)
-	_, err = suite.f.Seek(0, 0)
-	suite.NoError(err)
-	data, err := io.ReadAll(suite.f)
+	data, err := generateDataUnit(4, workerID, testBucketName, obj)
 	suite.NoError(err)
 	suite.Equal(nil, validDataUnit(4, workerID, testBucketName, obj, data))
 }
@@ -189,11 +175,11 @@ func (suite *PatternSuite) TestValidSuccess() {
 	workerID := 100
 
 	size := 1024
-	readSeeker, err := Generate(size, workerID, 0, testBucketName, obj)
+	data, err := Generate(size, workerID, testBucketName, obj)
 	suite.NoError(err)
 	obj.Size = size
 
-	err = Valid(workerID, testBucketName, obj, readSeeker)
+	err = Valid(workerID, testBucketName, obj, bytes.NewReader(data))
 	suite.NoError(err)
 }
 
@@ -205,11 +191,11 @@ func (suite *PatternSuite) TestValidLongBucketName() {
 	workerID := 100
 
 	size := 1024
-	readSeeker, err := Generate(size, workerID, 0, testLongBucketName, obj)
+	data, err := Generate(size, workerID, testLongBucketName, obj)
 	suite.NoError(err)
 	obj.Size = size
 
-	err = Valid(workerID, testLongBucketName, obj, readSeeker)
+	err = Valid(workerID, testLongBucketName, obj, bytes.NewReader(data))
 	suite.NoError(err)
 }
 

@@ -94,7 +94,7 @@ func loadSavedContext(loadFileName string) *ExecutionContext {
 }
 
 func (r *Runner) init() {
-	r.client = s3_client.NewS3Client(r.execContext.Endpoint, r.caCertFileName)
+	r.client = s3_client.NewS3Client(r.execContext.Endpoint, r.caCertFileName, r.multipartThresh)
 	err := r.initBucket()
 	if err != nil {
 		log.Fatal(err)
@@ -202,7 +202,7 @@ func (r *Runner) Run(cancel chan struct{}) error {
 				operation := r.selectOperation()
 				switch operation {
 				case Put:
-					err = r.execContext.Workers[workerID].Put(r.multipartThresh)
+					err = r.execContext.Workers[workerID].Put()
 				case Get:
 					err = r.execContext.Workers[workerID].Get()
 				case Delete:
