@@ -6,10 +6,10 @@ import (
 	"log"
 	"math/rand"
 
-	"github.com/peng225/oval/object"
-	"github.com/peng225/oval/pattern"
-	"github.com/peng225/oval/s3_client"
-	"github.com/peng225/oval/stat"
+	"github.com/peng225/oval/internal/object"
+	"github.com/peng225/oval/internal/pattern"
+	"github.com/peng225/oval/internal/s3client"
+	"github.com/peng225/oval/internal/stat"
 )
 
 type Worker struct {
@@ -17,7 +17,7 @@ type Worker struct {
 	minSize           int
 	maxSize           int
 	BucketsWithObject []*BucketWithObject `json:"bucketsWithObject"`
-	client            *s3_client.S3Client
+	client            *s3client.S3Client
 	st                *stat.Stat
 }
 
@@ -40,7 +40,7 @@ func (w *Worker) Put() error {
 	// Validation before write
 	getBeforeBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		var nsk *s3_client.NoSuchKey
+		var nsk *s3client.NoSuchKey
 		if errors.As(err, &nsk) {
 			if bucketWithObj.ObjectMeta.Exist(obj.Key) {
 				// expect: exists, actual: does not exist
@@ -94,7 +94,7 @@ func (w *Worker) Put() error {
 	// Validation after write
 	getAfterBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		var nsk *s3_client.NoSuchKey
+		var nsk *s3client.NoSuchKey
 		if errors.As(err, &nsk) {
 			err = fmt.Errorf("Object lost after put.\nerr: %w\nobj: %v", err, obj)
 		}
@@ -122,7 +122,7 @@ func (w *Worker) Get() error {
 	// Validation on get
 	body, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		var nsk *s3_client.NoSuchKey
+		var nsk *s3client.NoSuchKey
 		if errors.As(err, &nsk) {
 			err = fmt.Errorf("Object lost before get.\nerr: %w\nobj: %v", err, obj)
 		}
@@ -179,7 +179,7 @@ func (w *Worker) Delete() error {
 	// Validation before delete
 	getBeforeBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		var nsk *s3_client.NoSuchKey
+		var nsk *s3client.NoSuchKey
 		if errors.As(err, &nsk) {
 			err = fmt.Errorf("Object lost before delete.\nerr: %w\nobj: %v", err, obj)
 		}
@@ -205,7 +205,7 @@ func (w *Worker) Delete() error {
 	// Validation after delete
 	getAfterBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		var nsk *s3_client.NoSuchKey
+		var nsk *s3client.NoSuchKey
 		if !errors.As(err, &nsk) {
 			err = fmt.Errorf("Unexpected error occurred. (err = %w)", err)
 			log.Println(err.Error())

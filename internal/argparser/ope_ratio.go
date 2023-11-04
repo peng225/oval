@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/peng225/oval/runner"
+	"github.com/peng225/oval/internal/runner"
 )
 
 func ParseOpeRatio(opeRatioStr string) ([]float64, error) {

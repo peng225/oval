@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/peng225/oval/object"
+	"github.com/peng225/oval/internal/object"
 	"github.com/stretchr/testify/suite"
 )
 

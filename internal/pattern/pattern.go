@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/peng225/oval/object"
+	"github.com/peng225/oval/internal/object"
 )
 
 const (

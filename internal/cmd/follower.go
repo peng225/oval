@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/peng225/oval/multiprocess"
+	"github.com/peng225/oval/internal/multiprocess"
 	"github.com/spf13/cobra"
 )
 

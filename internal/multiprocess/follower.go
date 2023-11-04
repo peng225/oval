@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/peng225/oval/runner"
+	"github.com/peng225/oval/internal/runner"
 )
 
 type State int
