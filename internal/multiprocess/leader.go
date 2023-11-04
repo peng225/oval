@@ -76,9 +76,9 @@ func StartFollower(followerList []string,
 }
 
 func GetResultFromAllFollower(followerList []string) (bool, string, error) {
-	errCh := make(chan error, len(followerList))
+	var returnedErr error
 	reportCh := make(chan string, len(followerList))
-	successAllCh := make(chan bool, len(followerList))
+	successAll := true
 	canceled := false
 	wg := &sync.WaitGroup{}
 	wg.Add(len(followerList))
@@ -89,45 +89,36 @@ func GetResultFromAllFollower(followerList []string) (bool, string, error) {
 			if err != nil {
 				if !canceled {
 					canceled = true
+					returnedErr = err
+					successAll = false
 					cancelErr := cancelFollowerWorkload(followerList)
 					if cancelErr != nil {
 						log.Printf("Failed to cancel followers' workload. err: %v\n", cancelErr)
 					}
 				}
-				errCh <- err
 				return
 			}
 			if !success {
 				if !canceled {
 					canceled = true
+					successAll = false
 					cancelErr := cancelFollowerWorkload(followerList)
 					if cancelErr != nil {
 						log.Printf("Failed to cancel followers' workload. err: %v\n", cancelErr)
 					}
 				}
 			}
-			successAllCh <- success
 			reportCh <- report
 		}(follower)
 	}
 	wg.Wait()
 
-	select {
-	case err := <-errCh:
-		return false, "", err
-	default:
-	}
-	close(successAllCh)
-	successAll := true
-	for success := range successAllCh {
-		successAll = successAll && success
-	}
 	close(reportCh)
 	report := ""
 	for r := range reportCh {
 		report += r + "\n"
 	}
-	return successAll, report, nil
+	return successAll, report, returnedErr
 }
 
 func getResultFromFollower(follower string) (bool, string, error) {

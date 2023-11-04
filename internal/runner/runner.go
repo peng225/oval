@@ -181,20 +181,17 @@ func (r *Runner) Run(cancel chan struct{}) error {
 	}
 	wg := &sync.WaitGroup{}
 	now := time.Now()
-	errCh := make(chan error, r.execContext.NumWorker)
-	errOccurred := false
+	var err error
 	for i := 0; i < r.execContext.NumWorker; i++ {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			var err error
-			for !errOccurred && time.Since(now).Milliseconds() < r.timeInMs {
+			for err == nil && time.Since(now).Milliseconds() < r.timeInMs {
 				select {
 				case <-cancel:
 					errMsg := "Workload was canceled."
 					log.Println(errMsg)
-					errCh <- errors.New(errMsg)
-					errOccurred = true
+					err = errors.New(errMsg)
 					return
 				default:
 				}
@@ -211,8 +208,6 @@ func (r *Runner) Run(cancel chan struct{}) error {
 					err = r.execContext.Workers[workerID].List()
 				}
 				if err != nil {
-					errCh <- err
-					errOccurred = true
 					return
 				}
 			}
@@ -222,11 +217,8 @@ func (r *Runner) Run(cancel chan struct{}) error {
 	log.Println("Validation finished.")
 	r.st.Report()
 
-	// If there are some errors, get only the first one for simplicity.
-	select {
-	case err := <-errCh:
+	if err != nil {
 		return err
-	default:
 	}
 
 	return nil
