@@ -14,7 +14,7 @@ jobs:
   local-run:
     strategy:
       matrix:
-        secure: ["TRUE", "FALSE"]
+        scheme: ["http", "https"]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -29,10 +29,9 @@ jobs:
         AWS_ACCESS_KEY_ID: "minioadmin"
         AWS_SECRET_ACCESS_KEY: "minioadmin"
       run: |
-        S3_ENDPOINT="http://localhost:9000"
+        S3_ENDPOINT="${{ matrix.scheme }}://localhost:9000"
         CERT_CONFIG=""
-        if [ "${{ matrix.secure }}" == "TRUE" ]; then
-          S3_ENDPOINT="https://localhost:9000"
+        if [ "${{ matrix.scheme }}" == "https" ]; then
           CERT_CONFIG="--cacert=test/certs/public.crt"
           make start-minio-https
         else
