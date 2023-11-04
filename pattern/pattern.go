@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dsnet/golib/memfile"
 	"github.com/peng225/oval/object"
 )
 
@@ -71,47 +70,32 @@ func DecideSize(minSize, maxSize int) (int, error) {
 	return minSize + dataUnitSize*int(float64((maxSize-minSize)/dataUnitSize+1)*x), nil
 }
 
-func Generate(dataSize, workerID, offset int, bucketName string, obj *object.Object) (io.ReadSeeker, error) {
-	if offset%dataUnitSize != 0 {
-		return nil, fmt.Errorf("invalid offset size: %d", offset)
-	}
+func Generate(dataSize, workerID int, bucketName string, obj *object.Object) ([]byte, error) {
 	if len(bucketName) > object.MaxBucketNameLength {
 		bucketName = bucketName[:object.MaxBucketNameLength]
 	}
 
-	f := memfile.New([]byte{})
-	// memfile does not implement io.Closer interface.
-
-	unitCountOffset := offset / dataUnitSize
+	data := make([]byte, 0, dataSize)
 	for i := 0; i < dataSize/dataUnitSize; i++ {
-		err := generateDataUnit(i+unitCountOffset, workerID, bucketName, obj, f)
+		dataUnit, err := generateDataUnit(i, workerID, bucketName, obj)
 		if err != nil {
 			return nil, err
 		}
+		data = append(data, dataUnit...)
 	}
 
-	if len(f.Bytes()) != dataSize {
-		return nil, fmt.Errorf("Generated data size is wrong. (expected: %v, actual: %v)", dataSize, f.Bytes())
+	if len(data) != dataSize {
+		return nil, fmt.Errorf("Generated data size is wrong. (expected: %v, actual: %v)", dataSize, len(data))
 	}
 
-	_, err := f.Seek(0, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	return f, nil
+	return data, nil
 }
 
-func generateDataUnit(unitCount, workerID int, bucketName string, obj *object.Object, writer io.Writer) error {
+func generateDataUnit(unitCount, workerID int, bucketName string, obj *object.Object) ([]byte, error) {
 	bucketKeyformat := fmt.Sprintf("%%-%vs%%-%vs", object.MaxBucketNameLength, object.MaxKeyLength)
 	offsetInObject := unitCount * dataUnitSize
-	n, err := writer.Write([]byte(fmt.Sprintf(bucketKeyformat, bucketName, obj.Key)))
-	if err != nil {
-		return err
-	}
-	if n != object.MaxBucketNameLength+object.MaxKeyLength {
-		return fmt.Errorf("bucket name and key was not written correctly. n = %d", n)
-	}
+	dataUnit := make([]byte, 0, dataUnitSize)
+	dataUnit = append(dataUnit, []byte(fmt.Sprintf(bucketKeyformat, bucketName, obj.Key))...)
 
 	numBinBuf := make([]byte, dataUnitHeaderSizeWithoutBucketAndKey)
 	binary.LittleEndian.PutUint32(numBinBuf[0:4], uint32(obj.WriteCount))
@@ -120,27 +104,15 @@ func generateDataUnit(unitCount, workerID int, bucketName string, obj *object.Ob
 	unixTime := dt.UnixMicro()
 	binary.LittleEndian.PutUint32(numBinBuf[8:], uint32(workerID))
 	binary.LittleEndian.PutUint64(numBinBuf[12:], uint64(unixTime))
-	n, err = writer.Write(numBinBuf)
-	if err != nil {
-		return err
-	}
-	if n != dataUnitHeaderSizeWithoutBucketAndKey {
-		return fmt.Errorf("the data unit header without bucket name and key was not written correctly. n = %d", n)
-	}
+	dataUnit = append(dataUnit, numBinBuf...)
 
 	unitBodyStartPos := object.MaxBucketNameLength + object.MaxKeyLength + dataUnitHeaderSizeWithoutBucketAndKey
-	tmpData := make([]byte, 4)
 	for i := unitBodyStartPos; i < dataUnitSize; i += 4 {
-		tmpData[0] = byte(i)
-		tmpData[1] = byte(i + 1)
-		tmpData[2] = byte(i + 2)
-		tmpData[3] = byte(i + 3)
-		_, err := writer.Write(tmpData)
-		if err != nil {
-			return err
-		}
+		dataUnit = append(dataUnit,
+			byte(i), byte(i+1), byte(i+2), byte(i+3),
+		)
 	}
-	return nil
+	return dataUnit, nil
 }
 
 func Valid(workerID int, expectedBucketName string, obj *object.Object, reader io.Reader) error {
