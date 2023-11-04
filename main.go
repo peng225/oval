@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/peng225/oval/cmd"
+	"github.com/peng225/oval/internal/cmd"
 )
 
 func main() {

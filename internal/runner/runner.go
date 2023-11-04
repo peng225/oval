@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/peng225/oval/object"
-	"github.com/peng225/oval/s3_client"
-	"github.com/peng225/oval/stat"
+	"github.com/peng225/oval/internal/object"
+	"github.com/peng225/oval/internal/s3client"
+	"github.com/peng225/oval/internal/stat"
 	"github.com/pkg/profile"
 )
 
@@ -38,7 +38,7 @@ type Runner struct {
 	timeInMs        int64
 	profiler        bool
 	loadFileName    string
-	client          *s3_client.S3Client
+	client          *s3client.S3Client
 	st              stat.Stat
 	processID       int
 	multipartThresh int
@@ -94,7 +94,7 @@ func loadSavedContext(loadFileName string) *ExecutionContext {
 }
 
 func (r *Runner) init() {
-	r.client = s3_client.NewS3Client(r.execContext.Endpoint, r.caCertFileName, r.multipartThresh)
+	r.client = s3client.NewS3Client(r.execContext.Endpoint, r.caCertFileName, r.multipartThresh)
 	err := r.initBucket()
 	if err != nil {
 		log.Fatal(err)
@@ -139,7 +139,7 @@ func (r *Runner) initBucket() error {
 	for _, bucketName := range r.execContext.BucketNames {
 		err := r.client.HeadBucket(bucketName)
 		if err != nil {
-			var nf *s3_client.NotFound
+			var nf *s3client.NotFound
 			if errors.As(err, &nf) {
 				if r.loadFileName != "" {
 					return fmt.Errorf(`HeadBucket failed despite "load" parameter was set.`)
@@ -148,7 +148,7 @@ func (r *Runner) initBucket() error {
 				err = r.client.CreateBucket(bucketName)
 				if err != nil {
 					// Bucket creation may be executed by multiple follower processes.
-					var cf *s3_client.Conflict
+					var cf *s3client.Conflict
 					if errors.As(err, &cf) {
 						log.Printf(`Bucket "%s" already exists.`, bucketName)
 					} else {

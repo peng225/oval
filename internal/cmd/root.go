@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/peng225/oval/argparser"
-	"github.com/peng225/oval/runner"
+	"github.com/peng225/oval/internal/argparser"
+	"github.com/peng225/oval/internal/runner"
 	"github.com/spf13/cobra"
 )
 
