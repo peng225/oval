@@ -66,7 +66,6 @@ func (om *ObjectMeta) GetRandomObject() *Object {
 	return &om.ObjectList[objID]
 }
 
-// Caution: this function should be called while the object lock is acquired.
 func (om *ObjectMeta) RegisterToExistingList(key string) {
 	objID, err := strconv.ParseInt(key[KeyPrefixLength:], 16, 64)
 	if err != nil {

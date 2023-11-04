@@ -63,7 +63,7 @@ var leaderCmd = &cobra.Command{
 
 		successAll, report, err := multiprocess.GetResultFromAllFollower(followerList)
 		if err != nil {
-			log.Println(err)
+			log.Printf("GetResultFromAllFollower failed. err: %v", err)
 		}
 		log.Print("The report from followers:\n" + report)
 
