@@ -35,6 +35,11 @@ func TestParseMultipartThresh(t *testing.T) {
 		},
 		{
 			multipartThreshStr:      "8g",
+			expectedMultipartThresh: 8 * 1024 * 1024 * 1024,
+			expectedErr:             false,
+		},
+		{
+			multipartThreshStr:      "5t",
 			expectedMultipartThresh: 0,
 			expectedErr:             true,
 		},
