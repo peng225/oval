@@ -23,8 +23,8 @@ type Object struct {
 }
 
 type ObjectMeta struct {
-	ObjectList          []Object `json:"objectList"`
-	ExistingObjectIDs   []int64  `json:"existingObjectIDs"`
+	ObjectList          []*Object `json:"objectList"`
+	ExistingObjectIDs   []int64   `json:"existingObjectIDs"`
 	existingObjectIDMap map[int64]struct{}
 	KeyIDOffset         int64 `json:"keyIDOffset"`
 	KeyPrefix           string
@@ -47,11 +47,16 @@ func generateKey(objID int64) string {
 	return fmt.Sprintf("%s%010x", KeyShortPrefix, objID)
 }
 
+func getObjIDFromKey(key string) (int64, error) {
+	return strconv.ParseInt(key[KeyPrefixLength:], 16, 64)
+
+}
+
 func NewObjectMeta(numObj int, keyIDOffset int64) *ObjectMeta {
 	om := &ObjectMeta{}
-	om.ObjectList = make([]Object, numObj)
+	om.ObjectList = make([]*Object, numObj)
 	for objID := 0; objID < numObj; objID++ {
-		om.ObjectList[objID] = *NewObject(keyIDOffset + int64(objID))
+		om.ObjectList[objID] = NewObject(keyIDOffset + int64(objID))
 	}
 	om.ExistingObjectIDs = make([]int64, 0, int(math.Sqrt(float64(numObj))))
 	om.existingObjectIDMap = make(map[int64]struct{})
@@ -63,11 +68,11 @@ func NewObjectMeta(numObj int, keyIDOffset int64) *ObjectMeta {
 
 func (om *ObjectMeta) GetRandomObject() *Object {
 	objID := rand.Intn(len(om.ObjectList))
-	return &om.ObjectList[objID]
+	return om.ObjectList[objID]
 }
 
 func (om *ObjectMeta) RegisterToExistingList(key string) {
-	objID, err := strconv.ParseInt(key[KeyPrefixLength:], 16, 64)
+	objID, err := getObjIDFromKey(key)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -96,7 +101,7 @@ func (om *ObjectMeta) PopExistingRandomObject() *Object {
 		log.Fatalf("objID 0x%x found in ExistingObjectIDs, but not in existingObjectIDMap.", objID)
 	}
 	delete(om.existingObjectIDMap, objID)
-	return &om.ObjectList[objID]
+	return om.ObjectList[objID]
 }
 
 func (om *ObjectMeta) GetExistingRandomObject() *Object {
@@ -106,11 +111,11 @@ func (om *ObjectMeta) GetExistingRandomObject() *Object {
 	eoIDIndex := rand.Intn(len(om.ExistingObjectIDs))
 
 	objID := om.ExistingObjectIDs[eoIDIndex]
-	return &om.ObjectList[objID]
+	return om.ObjectList[objID]
 }
 
 func (om *ObjectMeta) Exist(key string) bool {
-	objID, err := strconv.ParseInt(key[KeyPrefixLength:], 16, 64)
+	objID, err := getObjIDFromKey(key)
 	if err != nil {
 		log.Fatal(err)
 	}
