@@ -101,12 +101,13 @@ func (r *Runner) init() {
 	}
 	if r.loadFileName == "" {
 		r.execContext.Workers = make([]Worker, r.execContext.NumWorker)
-		startID := rand.Intn(maxWorkerID)
-		r.execContext.StartWorkerID = startID
-		for i := range r.execContext.Workers {
-			r.execContext.Workers[i].id = (startID + i) % maxWorkerID
-			r.execContext.Workers[i].minSize = r.execContext.MinSize
-			r.execContext.Workers[i].maxSize = r.execContext.MaxSize
+		r.execContext.StartWorkerID = rand.Intn(maxWorkerID)
+	}
+	for i := range r.execContext.Workers {
+		r.execContext.Workers[i].id = (r.execContext.StartWorkerID + i) % maxWorkerID
+		r.execContext.Workers[i].minSize = r.execContext.MinSize
+		r.execContext.Workers[i].maxSize = r.execContext.MaxSize
+		if r.loadFileName == "" {
 			r.execContext.Workers[i].BucketsWithObject = make([]*BucketWithObject, len(r.execContext.BucketNames))
 			for j, bucketName := range r.execContext.BucketNames {
 				r.execContext.Workers[i].BucketsWithObject[j] = &BucketWithObject{
@@ -116,22 +117,14 @@ func (r *Runner) init() {
 						(int64(r.processID)<<32)+(int64(i)<<24)),
 				}
 			}
-			r.execContext.Workers[i].client = r.client
-			r.execContext.Workers[i].st = &r.st
-			r.execContext.Workers[i].ShowInfo()
-		}
-	} else {
-		for i := range r.execContext.Workers {
-			r.execContext.Workers[i].id = (r.execContext.StartWorkerID + i) % maxWorkerID
-			r.execContext.Workers[i].minSize = r.execContext.MinSize
-			r.execContext.Workers[i].maxSize = r.execContext.MaxSize
-			r.execContext.Workers[i].client = r.client
-			r.execContext.Workers[i].st = &r.st
+		} else {
 			for j := range r.execContext.Workers[i].BucketsWithObject {
 				r.execContext.Workers[i].BucketsWithObject[j].ObjectMeta.TidyUp()
 			}
-			r.execContext.Workers[i].ShowInfo()
 		}
+		r.execContext.Workers[i].client = r.client
+		r.execContext.Workers[i].st = &r.st
+		r.execContext.Workers[i].ShowInfo()
 	}
 }
 

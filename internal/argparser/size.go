@@ -38,8 +38,9 @@ func parseSizeUnit(s string) (int, error) {
 	unit := map[string]int{
 		"k": 1024,
 		"m": 1024 * 1024,
+		"g": 1024 * 1024 * 1024,
 	}
-	r := regexp.MustCompile("^[1-9][0-9]*[km]*$")
+	r := regexp.MustCompile("^[1-9][0-9]*[kmg]*$")
 	if r.MatchString(s) {
 		if size, err := strconv.Atoi(s); err == nil {
 			return size, nil
@@ -51,7 +52,7 @@ func parseSizeUnit(s string) (int, error) {
 			return baseNum * unit[s[len(s)-1:]], nil
 		}
 	}
-	return 0, fmt.Errorf("Illegal size format: %v\n", s)
+	return 0, fmt.Errorf("illegal size format: %v\n", s)
 }
 
 func ParseMultipartThresh(s string) (int, error) {

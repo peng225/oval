@@ -91,7 +91,7 @@ func GetResultFromAllFollower(followerList []string) (bool, string, error) {
 					canceled = true
 					returnedErr = err
 					successAll = false
-					cancelErr := cancelFollowerWorkload(followerList)
+					cancelErr := CancelFollowerWorkload(followerList)
 					if cancelErr != nil {
 						log.Printf("Failed to cancel followers' workload. err: %v\n", cancelErr)
 					}
@@ -102,7 +102,7 @@ func GetResultFromAllFollower(followerList []string) (bool, string, error) {
 				if !canceled {
 					canceled = true
 					successAll = false
-					cancelErr := cancelFollowerWorkload(followerList)
+					cancelErr := CancelFollowerWorkload(followerList)
 					if cancelErr != nil {
 						log.Printf("Failed to cancel followers' workload. err: %v\n", cancelErr)
 					}
@@ -151,7 +151,7 @@ func getResultFromFollower(follower string) (bool, string, error) {
 	return (string(body) == successMessage), report, nil
 }
 
-func cancelFollowerWorkload(followerList []string) error {
+func CancelFollowerWorkload(followerList []string) error {
 	var returnedErr error
 	for _, follower := range followerList {
 		path, err := url.JoinPath(follower, "cancel")

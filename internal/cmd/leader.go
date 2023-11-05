@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/peng225/oval/internal/argparser"
 	"github.com/peng225/oval/internal/multiprocess"
 	"github.com/spf13/cobra"
 )
@@ -49,15 +50,22 @@ var leaderCmd = &cobra.Command{
 			if err != nil {
 				log.Fatal(err)
 			}
-			if len(followerList) == 0 {
-				log.Fatalf("Invalid config file: %s", configFileName)
-			}
 		}
 
-		err := multiprocess.StartFollower(followerList, execContext,
-			opeRatio, execTime.Milliseconds(), multipartThresh)
+		err := argparser.ValidateFollowerList(followerList)
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		err = multiprocess.StartFollower(followerList, execContext,
+			opeRatio, execTime.Milliseconds(), multipartThresh)
+		if err != nil {
+			log.Printf("StartFollower failed. err: %v", err)
+			cancelErr := multiprocess.CancelFollowerWorkload(followerList)
+			if cancelErr != nil {
+				log.Printf("Failed to cancel followers' workload. err: %v\n", cancelErr)
+			}
+			os.Exit(1)
 		}
 		log.Println("Sent start requests to all followers.")
 
