@@ -23,29 +23,11 @@ type S3Client struct {
 	multipartThresh int
 }
 
-type NoSuchKey struct {
-	errorMessage string
-}
-
-func (nsk *NoSuchKey) Error() string {
-	return nsk.errorMessage
-}
-
-type NotFound struct {
-	errorMessage string
-}
-
-func (nf *NotFound) Error() string {
-	return nf.errorMessage
-}
-
-type Conflict struct {
-	errorMessage string
-}
-
-func (cf *Conflict) Error() string {
-	return cf.errorMessage
-}
+var (
+	NotFound  = errors.New("not found")
+	NoSuchKey = errors.New("no such key")
+	Conflict  = errors.New("conflict")
+)
 
 func getTLSClient(caCertFileName string) (*http.Client, error) {
 	cert, err := os.ReadFile(caCertFileName)
@@ -130,9 +112,7 @@ func (s *S3Client) CreateBucket(bucketName string) error {
 	if err != nil {
 		var baoby *types.BucketAlreadyOwnedByYou
 		if errors.As(err, &baoby) {
-			err = &Conflict{
-				errorMessage: err.Error(),
-			}
+			err = errors.Join(err, Conflict)
 		}
 		return err
 	}
@@ -260,9 +240,7 @@ func (s *S3Client) GetObject(bucketName, key string) (io.ReadCloser, error) {
 	if err != nil {
 		var nsk *types.NoSuchKey
 		if errors.As(err, &nsk) {
-			err = &NoSuchKey{
-				errorMessage: err.Error(),
-			}
+			err = errors.Join(err, NoSuchKey)
 		}
 		return nil, err
 	}
@@ -311,9 +289,7 @@ func (s *S3Client) HeadBucket(bucketName string) error {
 	if err != nil {
 		var nf *types.NotFound
 		if errors.As(err, &nf) {
-			err = &NotFound{
-				errorMessage: err.Error(),
-			}
+			err = errors.Join(err, NotFound)
 		}
 		return err
 	}

@@ -91,6 +91,7 @@ keypair: $(CERTGEN) $(MINIO_CERTDIR)
 .PHONY: start-minio
 start-minio: | $(MINIO_DATADIR)
 	docker run \
+	   --user $$(id -u):$$(id -g) \
 	   -p 9000:9000 \
 	   -p 9090:9090 \
 	   --name minio \
