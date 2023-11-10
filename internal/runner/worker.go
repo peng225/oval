@@ -40,8 +40,7 @@ func (w *Worker) Put() error {
 	// Validation before write
 	getBeforeBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		var nsk *s3client.NoSuchKey
-		if errors.As(err, &nsk) {
+		if errors.Is(err, s3client.NoSuchKey) {
 			if bucketWithObj.ObjectMeta.Exist(obj.Key) {
 				// expect: exists, actual: does not exist
 				err = fmt.Errorf("An object has been lost. (key = %s)", obj.Key)
@@ -94,8 +93,7 @@ func (w *Worker) Put() error {
 	// Validation after write
 	getAfterBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		var nsk *s3client.NoSuchKey
-		if errors.As(err, &nsk) {
+		if errors.Is(err, s3client.NoSuchKey) {
 			err = fmt.Errorf("Object lost after put.\nerr: %w\nobj: %v", err, obj)
 		}
 		log.Println(err.Error())
@@ -122,8 +120,7 @@ func (w *Worker) Get() error {
 	// Validation on get
 	body, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		var nsk *s3client.NoSuchKey
-		if errors.As(err, &nsk) {
+		if errors.Is(err, s3client.NoSuchKey) {
 			err = fmt.Errorf("Object lost before get.\nerr: %w\nobj: %v", err, obj)
 		}
 		log.Println(err.Error())
@@ -179,8 +176,7 @@ func (w *Worker) Delete() error {
 	// Validation before delete
 	getBeforeBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		var nsk *s3client.NoSuchKey
-		if errors.As(err, &nsk) {
+		if errors.Is(err, s3client.NoSuchKey) {
 			err = fmt.Errorf("Object lost before delete.\nerr: %w\nobj: %v", err, obj)
 		}
 		log.Println(err.Error())
@@ -205,8 +201,7 @@ func (w *Worker) Delete() error {
 	// Validation after delete
 	getAfterBody, err := w.client.GetObject(bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		var nsk *s3client.NoSuchKey
-		if !errors.As(err, &nsk) {
+		if !errors.Is(err, s3client.NoSuchKey) {
 			err = fmt.Errorf("Unexpected error occurred. (err = %w)", err)
 			log.Println(err.Error())
 			return err
