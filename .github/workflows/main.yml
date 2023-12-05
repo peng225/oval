@@ -30,7 +30,7 @@ jobs:
       env:
         AWS_ACCESS_KEY_ID: minioadmin
         AWS_SECRET_ACCESS_KEY: minioadmin
-
+        AWS_DEFAULT_REGION: "jp-tokyo-test"
 
     - name: Image build
       run: make image

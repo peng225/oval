@@ -177,18 +177,18 @@ func (s *S3Client) multipartUpload(bucketName, key string, body []byte) (int, er
 	remainingSize := int64(len(body))
 	partNumber := int32(1)
 	for remainingSize > 0 {
+		pn := partNumber
 		partSize := remainingSize
 		if int64(s.multipartThresh) < partSize {
 			partSize = int64(s.multipartThresh)
 		}
-
 		upOutput, err := s.client.UploadPart(ctx, &s3.UploadPartInput{
 			Bucket:        &bucketName,
 			Key:           &key,
 			Body:          bytes.NewReader(body[:partSize]),
-			PartNumber:    partNumber,
+			PartNumber:    &pn,
 			UploadId:      cmuOutput.UploadId,
-			ContentLength: partSize,
+			ContentLength: &partSize,
 		})
 		if err != nil {
 			_, abortErr := s.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
@@ -203,7 +203,7 @@ func (s *S3Client) multipartUpload(bucketName, key string, body []byte) (int, er
 		}
 		body = body[partSize:]
 		partList = append(partList, types.CompletedPart{
-			PartNumber: partNumber,
+			PartNumber: &pn,
 			ETag:       upOutput.ETag,
 		})
 		partNumber++
