@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -95,10 +96,6 @@ func loadSavedContext(loadFileName string) *ExecutionContext {
 
 func (r *Runner) init() {
 	r.client = s3client.NewS3Client(r.execContext.Endpoint, r.caCertFileName, r.multipartThresh)
-	err := r.initBucket()
-	if err != nil {
-		log.Fatal(err)
-	}
 	if r.loadFileName == "" {
 		r.execContext.Workers = make([]Worker, r.execContext.NumWorker)
 		r.execContext.StartWorkerID = rand.Intn(maxWorkerID)
@@ -128,16 +125,16 @@ func (r *Runner) init() {
 	}
 }
 
-func (r *Runner) initBucket() error {
+func (r *Runner) InitBucket(ctx context.Context) error {
 	for _, bucketName := range r.execContext.BucketNames {
-		err := r.client.HeadBucket(bucketName)
+		err := r.client.HeadBucket(ctx, bucketName)
 		if err != nil {
 			if errors.Is(err, s3client.NotFound) {
 				if r.loadFileName != "" {
 					return fmt.Errorf(`HeadBucket failed despite "load" parameter was set.`)
 				}
 				log.Printf(`Bucket "%s" not found. Creating...`, bucketName)
-				err = r.client.CreateBucket(bucketName)
+				err = r.client.CreateBucket(ctx, bucketName)
 				if err != nil {
 					// Bucket creation may be executed by multiple follower processes.
 					if errors.Is(err, s3client.Conflict) {
@@ -154,7 +151,7 @@ func (r *Runner) initBucket() error {
 		} else {
 			if r.loadFileName == "" {
 				log.Printf("Clearing bucket '%s'.\n", bucketName)
-				err = r.client.ClearBucket(bucketName, fmt.Sprintf("%s%02x", object.KeyShortPrefix, r.processID))
+				err = r.client.ClearBucket(ctx, bucketName, fmt.Sprintf("%s%02x", object.KeyShortPrefix, r.processID))
 				if err != nil {
 					return err
 				}
@@ -165,7 +162,7 @@ func (r *Runner) initBucket() error {
 	return nil
 }
 
-func (r *Runner) Run(cancel chan struct{}) error {
+func (r *Runner) Run(ctx context.Context) error {
 	log.Println("Validation start.")
 	if r.profiler {
 		defer profile.Start(profile.ProfilePath(".")).Stop()
@@ -179,10 +176,8 @@ func (r *Runner) Run(cancel chan struct{}) error {
 			defer wg.Done()
 			for err == nil && time.Since(now).Milliseconds() < r.timeInMs {
 				select {
-				case <-cancel:
-					errMsg := "Workload was canceled."
-					log.Println(errMsg)
-					err = errors.New(errMsg)
+				case <-ctx.Done():
+					log.Println("Workload was canceled.")
 					return
 				default:
 				}
@@ -190,13 +185,13 @@ func (r *Runner) Run(cancel chan struct{}) error {
 				operation := r.selectOperation()
 				switch operation {
 				case Put:
-					err = r.execContext.Workers[workerID].Put()
+					err = r.execContext.Workers[workerID].Put(ctx)
 				case Get:
-					err = r.execContext.Workers[workerID].Get()
+					err = r.execContext.Workers[workerID].Get(ctx)
 				case Delete:
-					err = r.execContext.Workers[workerID].Delete()
+					err = r.execContext.Workers[workerID].Delete(ctx)
 				case List:
-					err = r.execContext.Workers[workerID].List()
+					err = r.execContext.Workers[workerID].List(ctx)
 				}
 				if err != nil {
 					return

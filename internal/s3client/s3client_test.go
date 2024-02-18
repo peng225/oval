@@ -1,6 +1,7 @@
 package s3client
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -58,31 +59,32 @@ func TestSuccessCase(t *testing.T) {
 	client := NewS3Client("http://localhost:9000", "", 1024*1024)
 	require.NotNil(t, client)
 
+	ctx := context.Background()
 	bucketName := "bucket1"
-	err := client.CreateBucket(bucketName)
+	err := client.CreateBucket(ctx, bucketName)
 	require.NoError(t, err)
-	err = client.HeadBucket(bucketName)
+	err = client.HeadBucket(ctx, bucketName)
 	require.NoError(t, err)
 
 	key := "test-key1"
-	partCount, err := client.PutObject(bucketName, key, []byte("test-data"))
+	partCount, err := client.PutObject(ctx, bucketName, key, []byte("test-data"))
 	require.NoError(t, err)
 	assert.Equal(t, 1, partCount)
 
-	data, err := client.GetObject(bucketName, key)
+	data, err := client.GetObject(ctx, bucketName, key)
 	require.NoError(t, err)
 	dataStr, err := io.ReadAll(data)
 	require.NoError(t, err)
 	assert.Equal(t, []byte("test-data"), dataStr)
 
-	objectNames, err := client.ListObjects(bucketName, "test")
+	objectNames, err := client.ListObjects(ctx, bucketName, "test")
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{key}, objectNames)
 
-	err = client.DeleteObject(bucketName, key)
+	err = client.DeleteObject(ctx, bucketName, key)
 	require.NoError(t, err)
 
-	err = client.DeleteObject(bucketName, key)
+	err = client.DeleteObject(ctx, bucketName, key)
 	require.NoError(t, err)
 }
 
@@ -93,17 +95,18 @@ func TestFailureCase(t *testing.T) {
 	client := NewS3Client("http://localhost:9000", "", 1024*1024)
 	require.NotNil(t, client)
 
+	ctx := context.Background()
 	bucketName := "bucket1"
-	err := client.HeadBucket(bucketName)
+	err := client.HeadBucket(ctx, bucketName)
 	assert.ErrorIs(t, err, NotFound)
 
-	err = client.CreateBucket(bucketName)
+	err = client.CreateBucket(ctx, bucketName)
 	require.NoError(t, err)
 
-	err = client.CreateBucket(bucketName)
+	err = client.CreateBucket(ctx, bucketName)
 	require.ErrorIs(t, err, Conflict)
 
 	key := "test-key1"
-	_, err = client.GetObject(bucketName, key)
+	_, err = client.GetObject(ctx, bucketName, key)
 	assert.ErrorIs(t, err, NoSuchKey)
 }

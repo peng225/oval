@@ -77,6 +77,31 @@ run-followers: $(OVAL)
 	$(OVAL) follower --follower_port 8081 $(CERT_CONFIG) &
 	$(OVAL) follower --follower_port 8082 $(CERT_CONFIG) &
 
+.PHONY: run-and-signal
+run-and-signal: $(OVAL)
+	$(OVAL) --size 4k-12m --time $(EXEC_TIME) --num_obj 1024 --num_worker 4\
+		--bucket "test-bucket,test-bucket2" --ope_ratio 8,8,8,1 --endpoint $(S3_ENDPOINT)\
+		--multipart_thresh 5m $(CERT_CONFIG) &
+	sleep 2
+	kill $$(pidof $(OVAL))
+	wait
+	$(OVAL) --size 4k-12m --time $(EXEC_TIME) --num_obj 1024 --num_worker 4\
+		--bucket "test-bucket,test-bucket2" --ope_ratio 8,8,8,1 --endpoint $(S3_ENDPOINT)\
+		--multipart_thresh 5m $(CERT_CONFIG) &
+	sleep 2
+	kill -2 $$(pidof $(OVAL))
+	wait
+
+.PHONY: run-leader-and-signal-follower
+run-leader-and-signal: $(OVAL)
+	$(OVAL) leader --follower_list "http://localhost:8080,http://localhost:8081,http://localhost:8082"\
+		--size 4k-12m --time $(EXEC_TIME) --num_obj 1024 --num_worker 4 --bucket "test-bucket,test-bucket2"\
+		--ope_ratio 8,8,8,1 --endpoint $(S3_ENDPOINT) --multipart_thresh 5m &
+	sleep 2
+	FOLLOWER_PID=$$(ps aux | grep oval | grep follower_port | awk '{print $$2}' | head -n 1); \
+	kill $${FOLLOWER_PID}
+	wait
+
 $(CERTGEN): | $(BINDIR)
 	wget https://github.com/minio/certgen/releases/download/$(CERTGEN_VERSION)/certgen-linux-amd64
 	mv certgen-linux-amd64 $@

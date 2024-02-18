@@ -1,12 +1,18 @@
 package multiprocess
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/peng225/oval/internal/runner"
@@ -15,14 +21,14 @@ import (
 type State int
 
 var (
-	run            *runner.Runner
-	runnerErr      error
-	done           chan struct{}
-	cancel         chan struct{}
-	state          State
-	mu             sync.Mutex
-	watchDog       int
-	caCertFileName string
+	run               *runner.Runner
+	resultErr         error
+	stopWithCause     context.CancelCauseFunc
+	state             State
+	mu                sync.Mutex
+	watchDog          int
+	caCertFileName    string
+	workloadCancelErr error
 )
 
 const (
@@ -30,6 +36,10 @@ const (
 	running
 	cancelling
 )
+
+func init() {
+	workloadCancelErr = errors.New("workload cancel requested")
+}
 
 func StartServer(port int, cert string) {
 	portStr := strconv.Itoa(port)
@@ -83,19 +93,35 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 	printStartFollowerParameter(&param)
 
 	state = running
-	runnerErr = nil
-	done = make(chan struct{})
-	cancel = make(chan struct{})
+	resultErr = nil
 	watchDog = 0
 
+	var ctx context.Context
+	var stop context.CancelFunc
+	ctx, stop = signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	ctx, stopWithCause = context.WithCancelCause(ctx)
 	go func() {
+		defer stop()
 		run = runner.NewRunner(&param.Context, param.OpeRatio, param.TimeInMs, false, "",
 			param.ID, param.MultipartThresh, caCertFileName)
-		runnerErr = run.Run(cancel)
+		err := run.InitBucket(ctx)
+		if err != nil {
+			resultErr = fmt.Errorf("run.InitBucket() failed. %w", err)
+			log.Println(resultErr)
+		} else {
+			resultErr = run.Run(ctx)
+		}
+		// When the workload has been stopped by signals,
+		// exit gracefully.
+		// FIXME: I want to check the condition
+		//        in a more specific way.
+		if context.Cause(ctx) == context.Canceled {
+			log.Println("Follower is going to stop.")
+			os.Exit(0)
+		}
 		mu.Lock()
 		defer mu.Unlock()
 		state = stopped
-		close(done)
 	}()
 
 	go func() {
@@ -103,6 +129,8 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 		previousWatchDog := watchDog
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case <-ticker.C:
 				if previousWatchDog == watchDog {
 					log.Println("Could not receive requests from the leader for some time period.")
@@ -110,8 +138,6 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				previousWatchDog = watchDog
-			case <-done:
-				return
 			}
 		}
 	}()
@@ -141,8 +167,8 @@ func resultHandler(w http.ResponseWriter, r *http.Request) {
 
 	var writtenLength int
 	data := []byte(successMessage)
-	if runnerErr != nil {
-		data = []byte(runnerErr.Error())
+	if resultErr != nil {
+		data = []byte(resultErr.Error())
 	}
 	writtenLength, err := w.Write(data)
 	if err != nil {
@@ -185,7 +211,7 @@ func cancelWorkload() {
 		return
 	}
 
-	close(cancel)
+	stopWithCause(workloadCancelErr)
 	state = cancelling
 	log.Println("Canceled the workload.")
 }

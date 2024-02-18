@@ -105,8 +105,8 @@ func NewS3Client(endpoint, caCertFileName string, multipartThresh int) *S3Client
 	return s
 }
 
-func (s *S3Client) CreateBucket(bucketName string) error {
-	_, err := s.client.CreateBucket(context.Background(), &s3.CreateBucketInput{
+func (s *S3Client) CreateBucket(ctx context.Context, bucketName string) error {
+	_, err := s.client.CreateBucket(ctx, &s3.CreateBucketInput{
 		Bucket: &bucketName,
 	})
 	if err != nil {
@@ -119,9 +119,9 @@ func (s *S3Client) CreateBucket(bucketName string) error {
 	return nil
 }
 
-func (s *S3Client) ClearBucket(bucketName, prefix string) error {
+func (s *S3Client) ClearBucket(ctx context.Context, bucketName, prefix string) error {
 	for {
-		listRes, err := s.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
+		listRes, err := s.client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 			Bucket: &bucketName,
 			Prefix: &prefix,
 		})
@@ -132,7 +132,7 @@ func (s *S3Client) ClearBucket(bucketName, prefix string) error {
 			break
 		}
 		for _, obj := range listRes.Contents {
-			_, err := s.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
+			_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 				Bucket: &bucketName,
 				Key:    obj.Key,
 			})
@@ -144,11 +144,11 @@ func (s *S3Client) ClearBucket(bucketName, prefix string) error {
 	return nil
 }
 
-func (s *S3Client) PutObject(bucketName, key string, body []byte) (int, error) {
+func (s *S3Client) PutObject(ctx context.Context, bucketName, key string, body []byte) (int, error) {
 	var err error
 	var partCount int
 	if len(body) <= s.multipartThresh {
-		_, err = s.client.PutObject(context.Background(), &s3.PutObjectInput{
+		_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
 			Bucket: &bucketName,
 			Key:    &key,
 			Body:   bytes.NewReader(body),
@@ -158,13 +158,12 @@ func (s *S3Client) PutObject(bucketName, key string, body []byte) (int, error) {
 		}
 		partCount = 1
 	} else {
-		partCount, err = s.multipartUpload(bucketName, key, body)
+		partCount, err = s.multipartUpload(ctx, bucketName, key, body)
 	}
 	return partCount, err
 }
 
-func (s *S3Client) multipartUpload(bucketName, key string, body []byte) (int, error) {
-	ctx := context.Background()
+func (s *S3Client) multipartUpload(ctx context.Context, bucketName, key string, body []byte) (int, error) {
 	cmuOutput, err := s.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 		Bucket: &bucketName,
 		Key:    &key,
@@ -191,7 +190,11 @@ func (s *S3Client) multipartUpload(bucketName, key string, body []byte) (int, er
 			ContentLength: &partSize,
 		})
 		if err != nil {
-			_, abortErr := s.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+			// `ctx` cannot be used for AbortMultipartUpload()
+			// because UploadPart() may have failed due to
+			// the cancellation of 'ctx'.
+			abortCtx := context.Background()
+			_, abortErr := s.client.AbortMultipartUpload(abortCtx, &s3.AbortMultipartUploadInput{
 				Bucket:   &bucketName,
 				Key:      &key,
 				UploadId: cmuOutput.UploadId,
@@ -219,7 +222,11 @@ func (s *S3Client) multipartUpload(bucketName, key string, body []byte) (int, er
 		},
 	})
 	if err != nil {
-		_, abortErr := s.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+		// `ctx` cannot be used for AbortMultipartUpload()
+		// because UploadPart() may have failed due to
+		// the cancellation of 'ctx'.
+		abortCtx := context.Background()
+		_, abortErr := s.client.AbortMultipartUpload(abortCtx, &s3.AbortMultipartUploadInput{
 			Bucket:   &bucketName,
 			Key:      &key,
 			UploadId: cmuOutput.UploadId,
@@ -232,8 +239,8 @@ func (s *S3Client) multipartUpload(bucketName, key string, body []byte) (int, er
 	return int(partNumber - 1), nil
 }
 
-func (s *S3Client) GetObject(bucketName, key string) (io.ReadCloser, error) {
-	res, err := s.client.GetObject(context.Background(), &s3.GetObjectInput{
+func (s *S3Client) GetObject(ctx context.Context, bucketName, key string) (io.ReadCloser, error) {
+	res, err := s.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: &bucketName,
 		Key:    &key,
 	})
@@ -247,11 +254,11 @@ func (s *S3Client) GetObject(bucketName, key string) (io.ReadCloser, error) {
 	return res.Body, err
 }
 
-func (s *S3Client) ListObjects(bucketName, prefix string) ([]string, error) {
+func (s *S3Client) ListObjects(ctx context.Context, bucketName, prefix string) ([]string, error) {
 	var continuationToken *string = nil
 	objectNames := make([]string, 0)
 	for {
-		listRes, err := s.client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
+		listRes, err := s.client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 			Bucket:            &bucketName,
 			ContinuationToken: continuationToken,
 			Prefix:            &prefix,
@@ -271,8 +278,8 @@ func (s *S3Client) ListObjects(bucketName, prefix string) ([]string, error) {
 	return objectNames, nil
 }
 
-func (s *S3Client) DeleteObject(bucketName, key string) error {
-	_, err := s.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
+func (s *S3Client) DeleteObject(ctx context.Context, bucketName, key string) error {
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: &bucketName,
 		Key:    &key,
 	})
@@ -282,8 +289,8 @@ func (s *S3Client) DeleteObject(bucketName, key string) error {
 	return nil
 }
 
-func (s *S3Client) HeadBucket(bucketName string) error {
-	_, err := s.client.HeadBucket(context.Background(), &s3.HeadBucketInput{
+func (s *S3Client) HeadBucket(ctx context.Context, bucketName string) error {
+	_, err := s.client.HeadBucket(ctx, &s3.HeadBucketInput{
 		Bucket: &bucketName,
 	})
 	if err != nil {

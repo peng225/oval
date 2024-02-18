@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/peng225/oval/internal/argparser"
@@ -74,9 +77,23 @@ If no subcommands are specified, Oval runs in the single-process mode.`,
 			r = runner.NewRunnerFromLoadFile(loadFileName, opeRatio, execTime.Milliseconds(),
 				profiler, multipartThresh, caCertFileName)
 		}
-		err = r.Run(nil)
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+		defer stop()
+		err = r.InitBucket(ctx)
 		if err != nil {
-			log.Fatal("r.Run() failed.")
+			log.Println("r.InitBucket() failed. %w", err)
+			if ctx.Err() == context.Canceled {
+				return
+			}
+			os.Exit(1)
+		}
+		err = r.Run(ctx)
+		if err != nil {
+			log.Println("r.Run() failed.")
+			if ctx.Err() == context.Canceled {
+				return
+			}
+			os.Exit(1)
 		}
 
 		if saveFileName != "" {
