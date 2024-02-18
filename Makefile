@@ -3,7 +3,7 @@ IMAGE_NAME ?= ghcr.io/peng225/oval
 
 BINDIR := bin
 
-GO_FILES := $(shell find . -type f -name '*.go' -print)
+GO_FILES := $(shell find . -path './test' -prune -o -type f -name '*.go' -print)
 MINIO_DATADIR := $(shell git rev-parse --show-toplevel)/test/data
 MINIO_CERTDIR := $(shell git rev-parse --show-toplevel)/test/certs
 
