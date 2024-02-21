@@ -161,6 +161,10 @@ func handleCommonFlags() {
 		log.Fatal("The number of objects must be larger than or equal to the number of workers.")
 	}
 
+	if execTime < 0 {
+		log.Fatal("The execution time must be larger than or equal to 0.")
+	}
+
 	if numObj%numWorker != 0 {
 		log.Printf("warning: The number of objects (%d) is not divisible by the number of workers (%d). Only %d objects will be used.\n",
 			numObj, numWorker, numObj/numWorker*numWorker)
@@ -180,7 +184,7 @@ func defineCommonFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVar(&numObj, "num_obj", 10, "The maximum number of objects per process.")
 	cmd.Flags().IntVar(&numWorker, "num_worker", 1, "The number of workers per process.")
 	cmd.Flags().StringVar(&sizePattern, "size", "4k", `The size of object. Should be in the form like "8k" or "4k-2m". Only "k", "m" and "g" is allowed as an unit.`)
-	cmd.Flags().DurationVar(&execTime, "time", time.Second*3, "Time duration for run the workload.")
+	cmd.Flags().DurationVar(&execTime, "time", time.Second*3, "Time duration for run the workload. The value 0 means to run infinitely.")
 	cmd.Flags().StringSliceVar(&bucketNames, "bucket", nil, "The name list of the buckets. e.g. \"bucket1,bucket2\"")
 	cmd.Flags().StringVar(&opeRatioStr, "ope_ratio", "1,1,1,0", "The ration of put, get, delete and list operations. e.g. \"2,3,1,1\"")
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "The endpoint URL and TCP port number. e.g. \"http://127.0.0.1:9000\"")

@@ -174,7 +174,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			for err == nil && time.Since(now).Milliseconds() < r.timeInMs {
+			for err == nil && (r.timeInMs == 0 || time.Since(now).Milliseconds() < r.timeInMs) {
 				select {
 				case <-ctx.Done():
 					log.Println("Workload was canceled.")
