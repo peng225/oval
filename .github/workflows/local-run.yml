@@ -39,6 +39,8 @@ jobs:
           make start-minio
         fi
         make run S3_ENDPOINT=${S3_ENDPOINT} CERT_CONFIG=${CERT_CONFIG}
+        make run-and-signal S3_ENDPOINT=${S3_ENDPOINT} CERT_CONFIG=${CERT_CONFIG}
         make run-multi-process S3_ENDPOINT=${S3_ENDPOINT} CERT_CONFIG=${CERT_CONFIG}
         make run-leader-with-config S3_ENDPOINT=${S3_ENDPOINT} CERT_CONFIG=${CERT_CONFIG}
+        make run-leader-and-signal-follower S3_ENDPOINT=${S3_ENDPOINT} CERT_CONFIG=${CERT_CONFIG}
         make stop-minio
