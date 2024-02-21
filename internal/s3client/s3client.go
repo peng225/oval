@@ -192,9 +192,8 @@ func (s *S3Client) multipartUpload(ctx context.Context, bucketName, key string, 
 		if err != nil {
 			// `ctx` cannot be used for AbortMultipartUpload()
 			// because UploadPart() may have failed due to
-			// the cancellation of 'ctx'.
-			abortCtx := context.Background()
-			_, abortErr := s.client.AbortMultipartUpload(abortCtx, &s3.AbortMultipartUploadInput{
+			// the cancellation of `ctx`.
+			_, abortErr := s.client.AbortMultipartUpload(context.Background(), &s3.AbortMultipartUploadInput{
 				Bucket:   &bucketName,
 				Key:      &key,
 				UploadId: cmuOutput.UploadId,
@@ -224,9 +223,8 @@ func (s *S3Client) multipartUpload(ctx context.Context, bucketName, key string, 
 	if err != nil {
 		// `ctx` cannot be used for AbortMultipartUpload()
 		// because UploadPart() may have failed due to
-		// the cancellation of 'ctx'.
-		abortCtx := context.Background()
-		_, abortErr := s.client.AbortMultipartUpload(abortCtx, &s3.AbortMultipartUploadInput{
+		// the cancellation of `ctx`.
+		_, abortErr := s.client.AbortMultipartUpload(context.Background(), &s3.AbortMultipartUploadInput{
 			Bucket:   &bucketName,
 			Key:      &key,
 			UploadId: cmuOutput.UploadId,
