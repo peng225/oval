@@ -14,7 +14,7 @@ func ParseSize(s string) (int, int, error) {
 	if strings.Contains(s, "-") {
 		sizeStrs = strings.Split(s, "-")
 		if len(sizeStrs) != 2 {
-			return 0, 0, fmt.Errorf("Illegal size format: %v\n", s)
+			return 0, 0, fmt.Errorf("illegal size format: %v", s)
 		}
 	} else {
 		sizeStrs = []string{s, s}
@@ -29,7 +29,7 @@ func ParseSize(s string) (int, int, error) {
 		}
 	}
 	if sizes[0] > sizes[1] {
-		return 0, 0, errors.New("maxSize should be larger than minSize.")
+		return 0, 0, errors.New("maxSize should be larger than minSize")
 	}
 	return sizes[0], sizes[1], nil
 }
@@ -52,7 +52,7 @@ func parseSizeUnit(s string) (int, error) {
 			return baseNum * unit[s[len(s)-1:]], nil
 		}
 	}
-	return 0, fmt.Errorf("illegal size format: %v\n", s)
+	return 0, fmt.Errorf("illegal size format: %v", s)
 }
 
 func ParseMultipartThresh(s string) (int, error) {

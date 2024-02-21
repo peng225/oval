@@ -129,15 +129,15 @@ func (r *Runner) InitBucket(ctx context.Context) error {
 	for _, bucketName := range r.execContext.BucketNames {
 		err := r.client.HeadBucket(ctx, bucketName)
 		if err != nil {
-			if errors.Is(err, s3client.NotFound) {
+			if errors.Is(err, s3client.ErrNotFound) {
 				if r.loadFileName != "" {
-					return fmt.Errorf(`HeadBucket failed despite "load" parameter was set.`)
+					return fmt.Errorf(`head bucket failed despite "load" parameter was set`)
 				}
 				log.Printf(`Bucket "%s" not found. Creating...`, bucketName)
 				err = r.client.CreateBucket(ctx, bucketName)
 				if err != nil {
 					// Bucket creation may be executed by multiple follower processes.
-					if errors.Is(err, s3client.Conflict) {
+					if errors.Is(err, s3client.ErrConflict) {
 						log.Printf(`Bucket "%s" already exists.`, bucketName)
 					} else {
 						return err
