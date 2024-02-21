@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/signal"
 	"strconv"
 	"sync"
@@ -22,14 +23,12 @@ type State int
 var (
 	run               *runner.Runner
 	resultErr         error
-	serverCtx         context.Context
 	stopWithCause     context.CancelCauseFunc
 	state             State
 	mu                sync.Mutex
 	watchDog          int
 	caCertFileName    string
 	workloadCancelErr error
-	stoppedBySignal   chan struct{}
 )
 
 const (
@@ -40,48 +39,17 @@ const (
 
 func init() {
 	workloadCancelErr = errors.New("workload cancel requested")
-	stoppedBySignal = make(chan struct{})
 }
 
 func StartServer(port int, cert string) {
 	portStr := strconv.Itoa(port)
 	caCertFileName = cert
-	var stop context.CancelFunc
-	serverCtx, stop = signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	defer stop()
 
 	http.HandleFunc("/start", startHandler)
 	http.HandleFunc("/result", resultHandler)
 	http.HandleFunc("/cancel", cancelHandler)
-
-	server := &http.Server{
-		Addr:    ":" + portStr,
-		Handler: nil,
-	}
-
-	go func() {
-		log.Printf("Start server. port = %s\n", portStr)
-		if err := server.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatalf("HTTP server stopped in a erroneous way. %v", err)
-		}
-	}()
-
-	<-serverCtx.Done()
-	waitRunningWorkload()
-	err := server.Shutdown(serverCtx)
-	if err != nil {
-		log.Fatalf("server.Shutdown failed. err")
-	}
-	log.Println("HTTP server stopped successfully. Bye.")
-}
-
-func waitRunningWorkload() {
-	mu.Lock()
-	defer mu.Unlock()
-	if state == running {
-		log.Println("Waiting for running workload to stop...")
-		<-stoppedBySignal
-	}
+	log.Printf("Start server. port = %s\n", portStr)
+	log.Println(http.ListenAndServe(":"+portStr, nil))
 }
 
 func startHandler(w http.ResponseWriter, r *http.Request) {
@@ -129,8 +97,11 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 	watchDog = 0
 
 	var ctx context.Context
-	ctx, stopWithCause = context.WithCancelCause(serverCtx)
+	var stop context.CancelFunc
+	ctx, stop = signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	ctx, stopWithCause = context.WithCancelCause(ctx)
 	go func() {
+		defer stop()
 		run = runner.NewRunner(&param.Context, param.OpeRatio, param.TimeInMs, false, "",
 			param.ID, param.MultipartThresh, caCertFileName)
 		err := run.InitBucket(ctx)
@@ -146,7 +117,7 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 		//        in a more specific way.
 		if context.Cause(ctx) == context.Canceled {
 			log.Println("Follower is going to stop.")
-			stoppedBySignal <- struct{}{}
+			os.Exit(0)
 		}
 		mu.Lock()
 		defer mu.Unlock()
