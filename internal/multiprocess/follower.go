@@ -3,12 +3,10 @@ package multiprocess
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"os/signal"
 	"strconv"
 	"sync"
@@ -21,14 +19,13 @@ import (
 type State int
 
 var (
-	run               *runner.Runner
-	resultErr         error
-	stopWithCause     context.CancelCauseFunc
-	state             State
-	mu                sync.Mutex
-	watchDog          int
-	caCertFileName    string
-	workloadCancelErr error
+	run            *runner.Runner
+	resultErr      error
+	stop           context.CancelFunc
+	state          State
+	mu             sync.Mutex
+	watchDog       int
+	caCertFileName string
 )
 
 const (
@@ -38,18 +35,41 @@ const (
 )
 
 func init() {
-	workloadCancelErr = errors.New("workload cancel requested")
+	stop = func() {}
 }
 
 func StartServer(port int, cert string) {
 	portStr := strconv.Itoa(port)
 	caCertFileName = cert
+	serverCtx, _ := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 
 	http.HandleFunc("/start", startHandler)
 	http.HandleFunc("/result", resultHandler)
 	http.HandleFunc("/cancel", cancelHandler)
-	log.Printf("Start server. port = %s\n", portStr)
-	log.Println(http.ListenAndServe(":"+portStr, nil))
+
+	server := &http.Server{
+		Addr:    ":" + portStr,
+		Handler: nil,
+	}
+
+	go func() {
+		log.Printf("Start server. port = %s\n", portStr)
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			log.Fatalf("HTTP server stopped in a erroneous way. %v", err)
+		}
+	}()
+
+	<-serverCtx.Done()
+	err := server.Shutdown(serverCtx)
+	if err != nil {
+		log.Fatalf("server.Shutdown failed. %v", err)
+	}
+	log.Println("HTTP server stopped successfully.")
+	cancelWorkload()
+	for state != stopped {
+		time.Sleep(time.Millisecond * 100)
+	}
+	log.Println("Bye!")
 }
 
 func startHandler(w http.ResponseWriter, r *http.Request) {
@@ -97,11 +117,8 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 	watchDog = 0
 
 	var ctx context.Context
-	var stop context.CancelFunc
-	ctx, stop = signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	ctx, stopWithCause = context.WithCancelCause(ctx)
+	ctx, stop = context.WithCancel(context.Background())
 	go func() {
-		defer stop()
 		run = runner.NewRunner(&param.Context, param.OpeRatio, param.TimeInMs, false, "",
 			param.ID, param.MultipartThresh, caCertFileName)
 		err := run.InitBucket(ctx)
@@ -111,17 +128,10 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			resultErr = run.Run(ctx)
 		}
-		// When the workload has been stopped by signals,
-		// exit gracefully.
-		// FIXME: I want to check the condition
-		//        in a more specific way.
-		if context.Cause(ctx) == context.Canceled {
-			log.Println("Follower is going to stop.")
-			os.Exit(0)
-		}
 		mu.Lock()
 		defer mu.Unlock()
 		state = stopped
+		stop = func() {}
 	}()
 
 	go func() {
@@ -211,7 +221,7 @@ func cancelWorkload() {
 		return
 	}
 
-	stopWithCause(workloadCancelErr)
+	stop()
 	state = cancelling
-	log.Println("Canceled the workload.")
+	log.Println("Requested to cancel the workload.")
 }
