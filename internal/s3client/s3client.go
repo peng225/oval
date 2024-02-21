@@ -24,9 +24,9 @@ type S3Client struct {
 }
 
 var (
-	NotFound  = errors.New("not found")
-	NoSuchKey = errors.New("no such key")
-	Conflict  = errors.New("conflict")
+	ErrNotFound  = errors.New("not found")
+	ErrNoSuchKey = errors.New("no such key")
+	ErrConflict  = errors.New("conflict")
 )
 
 func getTLSClient(caCertFileName string) (*http.Client, error) {
@@ -112,7 +112,7 @@ func (s *S3Client) CreateBucket(ctx context.Context, bucketName string) error {
 	if err != nil {
 		var baoby *types.BucketAlreadyOwnedByYou
 		if errors.As(err, &baoby) {
-			err = errors.Join(err, Conflict)
+			err = errors.Join(err, ErrConflict)
 		}
 		return err
 	}
@@ -245,7 +245,7 @@ func (s *S3Client) GetObject(ctx context.Context, bucketName, key string) (io.Re
 	if err != nil {
 		var nsk *types.NoSuchKey
 		if errors.As(err, &nsk) {
-			err = errors.Join(err, NoSuchKey)
+			err = errors.Join(err, ErrNoSuchKey)
 		}
 		return nil, err
 	}
@@ -294,7 +294,7 @@ func (s *S3Client) HeadBucket(ctx context.Context, bucketName string) error {
 	if err != nil {
 		var nf *types.NotFound
 		if errors.As(err, &nf) {
-			err = errors.Join(err, NotFound)
+			err = errors.Join(err, ErrNotFound)
 		}
 		return err
 	}

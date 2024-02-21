@@ -98,15 +98,15 @@ func TestFailureCase(t *testing.T) {
 	ctx := context.Background()
 	bucketName := "bucket1"
 	err := client.HeadBucket(ctx, bucketName)
-	assert.ErrorIs(t, err, NotFound)
+	assert.ErrorIs(t, err, ErrNotFound)
 
 	err = client.CreateBucket(ctx, bucketName)
 	require.NoError(t, err)
 
 	err = client.CreateBucket(ctx, bucketName)
-	require.ErrorIs(t, err, Conflict)
+	require.ErrorIs(t, err, ErrConflict)
 
 	key := "test-key1"
 	_, err = client.GetObject(ctx, bucketName, key)
-	assert.ErrorIs(t, err, NoSuchKey)
+	assert.ErrorIs(t, err, ErrNoSuchKey)
 }

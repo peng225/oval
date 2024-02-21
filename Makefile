@@ -10,7 +10,7 @@ MINIO_CERTDIR := $(shell git rev-parse --show-toplevel)/test/certs
 CERTGEN_VERSION := v1.2.1
 CERTGEN := $(BINDIR)/certgen-$(CERTGEN_VERSION)
 
-GOLANGCI_LINT_VERSION := v1.55.1
+GOLANGCI_LINT_VERSION := v1.56.2
 GOLANGCI_LINT := $(BINDIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 
 S3_ENDPOINT ?= http://localhost:9000

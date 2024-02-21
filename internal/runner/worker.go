@@ -41,10 +41,10 @@ func (w *Worker) Put(ctx context.Context) error {
 	// Validation before write
 	getBeforeBody, err := w.client.GetObject(ctx, bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		if errors.Is(err, s3client.NoSuchKey) {
+		if errors.Is(err, s3client.ErrNoSuchKey) {
 			if bucketWithObj.ObjectMeta.Exist(obj.Key) {
 				// expect: exists, actual: does not exist
-				err = fmt.Errorf("An object has been lost. (key = %s)", obj.Key)
+				err = fmt.Errorf("an object has been lost. (key = %s)", obj.Key)
 				log.Println(err.Error())
 				return err
 			}
@@ -56,7 +56,7 @@ func (w *Worker) Put(ctx context.Context) error {
 		defer getBeforeBody.Close()
 		if !bucketWithObj.ObjectMeta.Exist(obj.Key) {
 			// expect: does not exist, actual: exists
-			err = fmt.Errorf("An unexpected object was found. (key = %s)", obj.Key)
+			err = fmt.Errorf("an unexpected object was found. (key = %s)", obj.Key)
 			log.Println(err.Error())
 			return err
 		}
@@ -66,7 +66,7 @@ func (w *Worker) Put(ctx context.Context) error {
 				log.Println("Detected the canceled context.")
 				return nil
 			}
-			err = fmt.Errorf("Data validation error occurred before put.\n%w", err)
+			err = fmt.Errorf("data validation error occurred before put.\n%w", err)
 			log.Println(err.Error())
 			return err
 		}
@@ -98,8 +98,8 @@ func (w *Worker) Put(ctx context.Context) error {
 	// Validation after write
 	getAfterBody, err := w.client.GetObject(ctx, bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		if errors.Is(err, s3client.NoSuchKey) {
-			err = fmt.Errorf("Object lost after put.\nerr: %w\nobj: %v", err, obj)
+		if errors.Is(err, s3client.ErrNoSuchKey) {
+			err = fmt.Errorf("object lost after put.\nerr: %w\nobj: %v", err, obj)
 		}
 		log.Println(err.Error())
 		return err
@@ -111,7 +111,7 @@ func (w *Worker) Put(ctx context.Context) error {
 			log.Println("Detected the canceled context.")
 			return nil
 		}
-		err = fmt.Errorf("Data validation error occurred after put.\n%w", err)
+		err = fmt.Errorf("data validation error occurred after put.\n%w", err)
 		log.Println(err.Error())
 		return err
 	}
@@ -129,8 +129,8 @@ func (w *Worker) Get(ctx context.Context) error {
 	// Validation on get
 	body, err := w.client.GetObject(ctx, bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		if errors.Is(err, s3client.NoSuchKey) {
-			err = fmt.Errorf("Object lost before get.\nerr: %w\nobj: %v", err, obj)
+		if errors.Is(err, s3client.ErrNoSuchKey) {
+			err = fmt.Errorf("object lost before get.\nerr: %w\nobj: %v", err, obj)
 		}
 		log.Println(err.Error())
 		return err
@@ -142,7 +142,7 @@ func (w *Worker) Get(ctx context.Context) error {
 			log.Println("Detected the canceled context.")
 			return nil
 		}
-		err = fmt.Errorf("Data validation error occurred at get operation.\n%w", err)
+		err = fmt.Errorf("data validation error occurred at get operation.\n%w", err)
 		log.Println(err.Error())
 		return err
 	}
@@ -160,7 +160,7 @@ func (w *Worker) List(ctx context.Context) error {
 	}
 
 	if len(bucketWithObj.ObjectMeta.ExistingObjectIDs) != len(objectNames) {
-		err = fmt.Errorf("Invalid number of objects found as a result of the LIST operation. expected = %d, actual = %d",
+		err = fmt.Errorf("invalid number of objects found as a result of the LIST operation. expected = %d, actual = %d",
 			len(bucketWithObj.ObjectMeta.ExistingObjectIDs), len(objectNames))
 		log.Println(err.Error())
 		return err
@@ -168,7 +168,7 @@ func (w *Worker) List(ctx context.Context) error {
 
 	for _, objName := range objectNames {
 		if !bucketWithObj.ObjectMeta.Exist(objName) {
-			err = fmt.Errorf("Invalid object key '%s' found in the result of the LIST operation. workerID = 0x%x",
+			err = fmt.Errorf("invalid object key '%s' found in the result of the LIST operation. workerID = 0x%x",
 				objName, w.id)
 			log.Println(err.Error())
 			return err
@@ -189,8 +189,8 @@ func (w *Worker) Delete(ctx context.Context) error {
 	// Validation before delete
 	getBeforeBody, err := w.client.GetObject(ctx, bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		if errors.Is(err, s3client.NoSuchKey) {
-			err = fmt.Errorf("Object lost before delete.\nerr: %w\nobj: %v", err, obj)
+		if errors.Is(err, s3client.ErrNoSuchKey) {
+			err = fmt.Errorf("object lost before delete.\nerr: %w\nobj: %v", err, obj)
 		}
 		log.Println(err.Error())
 		return err
@@ -202,7 +202,7 @@ func (w *Worker) Delete(ctx context.Context) error {
 			log.Println("Detected the canceled context.")
 			return nil
 		}
-		err = fmt.Errorf("Data validation error occurred before delete.\n%w", err)
+		err = fmt.Errorf("data validation error occurred before delete.\n%w", err)
 		log.Println(err.Error())
 		return err
 	}
@@ -218,8 +218,8 @@ func (w *Worker) Delete(ctx context.Context) error {
 	// Validation after delete
 	getAfterBody, err := w.client.GetObject(ctx, bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		if !errors.Is(err, s3client.NoSuchKey) {
-			err = fmt.Errorf("Unexpected error occurred. (err = %w)", err)
+		if !errors.Is(err, s3client.ErrNoSuchKey) {
+			err = fmt.Errorf("unexpected error occurred. (err = %w)", err)
 			log.Println(err.Error())
 			return err
 		}
