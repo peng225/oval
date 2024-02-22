@@ -199,7 +199,7 @@ func (s *S3Client) multipartUpload(ctx context.Context, bucketName, key string, 
 				UploadId: cmuOutput.UploadId,
 			})
 			if abortErr != nil {
-				log.Fatalf("UploadPart err: %v, AbortMultipartUpload err: %v", err, abortErr)
+				err = errors.Join(err, fmt.Errorf("failed to abort multipart upload. %w", abortErr))
 			}
 			return 0, err
 		}
@@ -230,7 +230,7 @@ func (s *S3Client) multipartUpload(ctx context.Context, bucketName, key string, 
 			UploadId: cmuOutput.UploadId,
 		})
 		if abortErr != nil {
-			log.Fatalf("CompleteMultipartUpload err: %v, AbortMultipartUpload err: %v", err, abortErr)
+			err = errors.Join(err, fmt.Errorf("failed to abort multipart upload. %w", abortErr))
 		}
 		return 0, err
 	}

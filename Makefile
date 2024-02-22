@@ -77,15 +77,11 @@ run-followers: $(OVAL)
 run-and-signal: $(OVAL)
 	$(OVAL) $(COMMON_OPTIONS) $(CERT_CONFIG) &
 	sleep 2
-	kill $$(pidof $(OVAL))
-	wait
-	$(OVAL) $(COMMON_OPTIONS) $(CERT_CONFIG) &
-	sleep 2
 	kill -2 $$(pidof $(OVAL))
 	wait
 
 .PHONY: run-leader-and-signal-follower
-run-leader-and-signal: $(OVAL)
+run-leader-and-signal-follower: $(OVAL)
 	$(OVAL) leader --follower_list "http://localhost:8080,http://localhost:8081,http://localhost:8082"\
 		$(COMMON_OPTIONS) &
 	sleep 2

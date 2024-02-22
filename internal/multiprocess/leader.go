@@ -26,23 +26,6 @@ type StartFollowerParameter struct {
 	MultipartThresh int
 }
 
-func InitFollower(followerList []string) error {
-	for _, follower := range followerList {
-		path, err := url.JoinPath(follower, "init")
-		if err != nil {
-			return err
-		}
-		resp, err := http.Post(path, "application/octet-stream", nil)
-		if err != nil {
-			return err
-		}
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("invalid status code. StatusCode = %d", resp.StatusCode)
-		}
-	}
-	return nil
-}
-
 func StartFollower(followerList []string,
 	context *runner.ExecutionContext,
 	opeRatio []float64, timeInMs int64, multipartThresh int) error {
