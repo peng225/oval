@@ -3,8 +3,10 @@ package object
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"math"
 	"math/rand"
+	"os"
 	"strconv"
 )
 
@@ -74,7 +76,8 @@ func (om *ObjectMeta) GetRandomObject() *Object {
 func (om *ObjectMeta) RegisterToExistingList(key string) {
 	objID, err := getObjIDFromKey(key)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	if _, ok := om.existingObjectIDMap[objID]; ok {
 		// The key is already registered.
@@ -117,7 +120,8 @@ func (om *ObjectMeta) GetExistingRandomObject() *Object {
 func (om *ObjectMeta) Exist(key string) bool {
 	objID, err := getObjIDFromKey(key)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	_, ok := om.existingObjectIDMap[objID]
 	return ok

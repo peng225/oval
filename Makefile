@@ -50,7 +50,7 @@ test: $(OVAL)
 .PHONY: run
 run: $(OVAL)
 	$(OVAL) $(COMMON_OPTIONS) $(CERT_CONFIG) --save test.json
-	$(OVAL) --time 3s --multipart_thresh 6m --load test.json $(CERT_CONFIG)
+	$(OVAL) --time 3s --multipart_thresh 6m --log json --load test.json $(CERT_CONFIG)
 
 .PHONY: run-multi-process
 run-multi-process: $(OVAL)

@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -73,7 +73,8 @@ func NewS3Client(endpoint, caCertFileName string, multipartThresh int) *S3Client
 	if caCertFileName != "" {
 		client, err = getTLSClient(caCertFileName)
 		if err != nil {
-			log.Fatal(err)
+			slog.Error(err.Error())
+			os.Exit(1)
 		}
 	}
 	if endpoint != "" {
@@ -89,13 +90,15 @@ func NewS3Client(endpoint, caCertFileName string, multipartThresh int) *S3Client
 			config.WithEndpointResolverWithOptions(customResolver),
 			config.WithHTTPClient(client))
 		if err != nil {
-			log.Fatal(err)
+			slog.Error(err.Error())
+			os.Exit(1)
 		}
 	} else {
 		cfg, err = config.LoadDefaultConfig(context.Background(),
 			config.WithHTTPClient(client))
 		if err != nil {
-			log.Fatal(err)
+			slog.Error(err.Error())
+			os.Exit(1)
 		}
 	}
 

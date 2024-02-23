@@ -3,7 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/peng225/oval/internal/argparser"
@@ -43,40 +43,47 @@ var leaderCmd = &cobra.Command{
 	Long:  `Start the leader of the multi-process mode.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		handleCommonFlags()
+		handleSubCommonFlags()
 
 		if configFileName != "" {
 			var err error
 			followerList, err = parseConfig()
 			if err != nil {
-				log.Fatal(err)
+				slog.Error(err.Error())
+				os.Exit(1)
 			}
 		}
 
 		err := argparser.ValidateFollowerList(followerList)
 		if err != nil {
-			log.Fatal(err)
+			slog.Error(err.Error())
+			os.Exit(1)
 		}
 
 		err = multiprocess.StartFollower(followerList, execContext,
 			opeRatio, execTime.Milliseconds(), multipartThresh)
 		if err != nil {
-			log.Printf("StartFollower failed. err: %v", err)
+			slog.Error("StartFollower failed.", "err", err)
 			cancelErr := multiprocess.CancelFollowerWorkload(followerList)
 			if cancelErr != nil {
-				log.Printf("Failed to cancel followers' workload. err: %v\n", cancelErr)
+				slog.Error("Failed to cancel followers' workload.", "err", cancelErr)
 			}
 			os.Exit(1)
 		}
-		log.Println("Sent start requests to all followers.")
+		slog.Info("Sent start requests to all followers.")
 
 		successAll, report, err := multiprocess.GetResultFromAllFollower(followerList)
 		if err != nil {
-			log.Printf("GetResultFromAllFollower failed. err: %v", err)
+			slog.Error("GetResultFromAllFollower failed.", "err", err)
 		}
-		log.Print("The report from followers:\n" + report)
+
+		for k, v := range report {
+			slog.Info("The report from " + k + ":" + v)
+		}
 
 		if !successAll {
-			log.Fatal("Some followers' workload failed.")
+			slog.Error("Some followers' workload failed.")
+			os.Exit(1)
 		}
 	},
 }
@@ -94,6 +101,7 @@ func init() {
 	// is called directly, e.g.:
 	// leaderCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	defineCommonFlags(leaderCmd)
+	defineSubCommonFlags(leaderCmd)
 	leaderCmd.Flags().StringSliceVar(&followerList, "follower_list", nil, "The follower list. e.g. \"http://localhost:8080,http://localhost:8081\"")
 	leaderCmd.Flags().StringVar(&configFileName, "config", "", "Config file name in JSON format.")
 

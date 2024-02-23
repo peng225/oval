@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"os/signal"
 	"strconv"
@@ -53,7 +54,7 @@ func StartServer(port int, cert string) {
 	}
 
 	go func() {
-		log.Printf("Start server. port = %s\n", portStr)
+		slog.Info("Start server.", "port", portStr)
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatalf("HTTP server stopped in a erroneous way. %v", err)
 		}
@@ -64,23 +65,23 @@ func StartServer(port int, cert string) {
 	if err != nil {
 		log.Fatalf("server.Shutdown failed. %v", err)
 	}
-	log.Println("HTTP server stopped successfully.")
+	slog.Info("HTTP server stopped successfully.")
 	cancelWorkload()
 	for state != stopped {
 		time.Sleep(time.Millisecond * 100)
 	}
-	log.Println("Bye!")
+	slog.Info("Bye!")
 }
 
 func startHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Received a start request.")
+	slog.Info("Received a start request.")
 	defer func() {
 		if r.Body != nil {
 			r.Body.Close()
 		}
 	}()
 	if r.Method != http.MethodPost {
-		log.Printf("Invalid method: %s\n", r.Method)
+		slog.Error("Invalid method", "method", r.Method)
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
@@ -88,17 +89,19 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 	defer mu.Unlock()
 	if state == running {
 		// This block exists to make startHandler idempotent.
-		log.Println("Workload is already running.")
+		slog.Info("Workload is already running.")
 		return
 	} else if state != stopped {
-		log.Printf("Invalid state. (state=%v)", state)
+		// FIXME: When the status is canceling,
+		//        returning "InternalServerError" is not good.
+		slog.Error("Invalid state.", "state", state)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Println(err)
+		slog.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -106,7 +109,7 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 	var param StartFollowerParameter
 	err = json.Unmarshal(body, &param)
 	if err != nil {
-		log.Println(err)
+		slog.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -124,7 +127,7 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 		err := run.InitBucket(ctx)
 		if err != nil {
 			resultErr = fmt.Errorf("run.InitBucket() failed. %w", err)
-			log.Println(resultErr)
+			slog.Error(resultErr.Error())
 		} else {
 			resultErr = run.Run(ctx)
 		}
@@ -144,7 +147,7 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			case <-ticker.C:
 				if previousWatchDog == watchDog {
-					log.Println("Could not receive requests from the leader for some time period.")
+					slog.Error("Could not receive requests from the leader for some time period.")
 					cancelWorkload()
 					return
 				}
@@ -155,16 +158,16 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func printStartFollowerParameter(param *StartFollowerParameter) {
-	log.Printf("ID: %d\n", param.ID)
-	log.Printf("Context: %v\n", param.Context)
-	log.Printf("OpeRatio: %v\n", param.OpeRatio)
-	log.Printf("TimeInMs: %v\n", param.TimeInMs)
-	log.Printf("MultipartThresh: %v\n", param.MultipartThresh)
+	slog.Info("Start follower params.", "ID", param.ID,
+		"Context", param.Context,
+		"OpeRatio", param.OpeRatio,
+		"TimeInMs", param.TimeInMs,
+		"MultipartThresh", param.MultipartThresh)
 }
 
 func resultHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		log.Printf("Invalid method: %s\n", r.Method)
+		slog.Error("Invalid method", "method", r.Method)
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
@@ -183,30 +186,30 @@ func resultHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	writtenLength, err := w.Write(data)
 	if err != nil {
-		log.Println(err)
+		slog.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 	} else if writtenLength != len(data) {
-		log.Printf("Invalid written length. writtenLength = %d\n", writtenLength)
+		slog.Error("Invalid written length.", "writtenLength", writtenLength)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
 func cancelHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Received a cancel request.")
+	slog.Info("Received a cancel request.")
 	defer func() {
 		if r.Body != nil {
 			r.Body.Close()
 		}
 	}()
 	if r.Method != http.MethodPost {
-		log.Printf("Invalid method: %s\n", r.Method)
+		slog.Error("Invalid method", "method", r.Method)
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
 	_, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Println(err)
+		slog.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -218,11 +221,11 @@ func cancelWorkload() {
 	mu.Lock()
 	defer mu.Unlock()
 	if state != running {
-		log.Printf("Workload is not running. (state = %v)\n", state)
+		slog.Info("Workload is not running.", "state", state)
 		return
 	}
 
 	stop()
 	state = cancelling
-	log.Println("Requested to cancel the workload.")
+	slog.Info("Requested to cancel the workload.")
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"math/rand"
 	"os"
 	"sync"
@@ -70,7 +71,8 @@ func NewRunnerFromLoadFile(loadFileName string, opeRatio []float64, timeInMs int
 	}
 	_, err := os.Stat(loadFileName)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	ec := loadSavedContext(loadFileName)
 	return NewRunner(ec, opeRatio, timeInMs, profiler, loadFileName, 0, multipartThresh, caCertFileName)
@@ -79,17 +81,20 @@ func NewRunnerFromLoadFile(loadFileName string, opeRatio []float64, timeInMs int
 func loadSavedContext(loadFileName string) *ExecutionContext {
 	f, err := os.Open(loadFileName)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	defer f.Close()
 	savedContext, err := io.ReadAll(f)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	ec := &ExecutionContext{}
 	err = json.Unmarshal(savedContext, ec)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	return ec
 }
@@ -133,29 +138,29 @@ func (r *Runner) InitBucket(ctx context.Context) error {
 				if r.loadFileName != "" {
 					return fmt.Errorf(`head bucket failed despite "load" parameter was set`)
 				}
-				log.Printf(`Bucket "%s" not found. Creating...`, bucketName)
+				slog.Info("Bucket not found. Creating...", "bucket", bucketName)
 				err = r.client.CreateBucket(ctx, bucketName)
 				if err != nil {
 					// Bucket creation may be executed by multiple follower processes.
 					if errors.Is(err, s3client.ErrConflict) {
-						log.Printf(`Bucket "%s" already exists.`, bucketName)
+						slog.Info("Bucket already exists.", "bucket", bucketName)
 					} else {
 						return err
 					}
 				} else {
-					log.Println("Bucket created successfully.")
+					slog.Info("Bucket created successfully.")
 				}
 			} else {
 				return err
 			}
 		} else {
 			if r.loadFileName == "" {
-				log.Printf("Clearing bucket '%s'.\n", bucketName)
+				slog.Info("Clearing bucket.", "bucket", bucketName)
 				err = r.client.ClearBucket(ctx, bucketName, fmt.Sprintf("%s%02x", object.KeyShortPrefix, r.processID))
 				if err != nil {
 					return err
 				}
-				log.Println("Bucket cleared successfully.")
+				slog.Info("Bucket cleared successfully.")
 			}
 		}
 	}
@@ -163,7 +168,7 @@ func (r *Runner) InitBucket(ctx context.Context) error {
 }
 
 func (r *Runner) Run(ctx context.Context) error {
-	log.Println("Validation start.")
+	slog.Info("Validation start.")
 	if r.profiler {
 		defer profile.Start(profile.ProfilePath(".")).Stop()
 	}
@@ -177,7 +182,7 @@ func (r *Runner) Run(ctx context.Context) error {
 			for err == nil && (r.timeInMs == 0 || time.Since(now).Milliseconds() < r.timeInMs) {
 				select {
 				case <-ctx.Done():
-					log.Println("Workload was canceled.")
+					slog.Warn("Workload was canceled.")
 					return
 				default:
 				}
@@ -200,7 +205,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		}(i)
 	}
 	wg.Wait()
-	log.Println("Validation finished.")
+	slog.Info("Validation finished.")
 	r.st.Report()
 
 	if err != nil {
