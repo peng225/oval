@@ -21,16 +21,16 @@ const (
 
 func DecideSize(minSize, maxSize int) (int, error) {
 	if minSize < dataUnitSize {
-		return 0, fmt.Errorf("minSize should be larger than or equal to %v.", dataUnitSize)
+		return 0, fmt.Errorf("minSize should be larger than or equal to %v", dataUnitSize)
 	}
 	if minSize%dataUnitSize != 0 {
-		return 0, fmt.Errorf("minSize should be a multiple of %v.", dataUnitSize)
+		return 0, fmt.Errorf("minSize should be a multiple of %v", dataUnitSize)
 	}
 	if maxSize%dataUnitSize != 0 {
-		return 0, fmt.Errorf("maxSize should be a multiple of %v.", dataUnitSize)
+		return 0, fmt.Errorf("maxSize should be a multiple of %v", dataUnitSize)
 	}
 	if maxSize < minSize {
-		return 0, errors.New("maxSize should be larger than or equal to minSize.")
+		return 0, errors.New("maxSize should be larger than or equal to minSize")
 	}
 
 	/*
@@ -85,7 +85,7 @@ func Generate(dataSize, workerID int, bucketName string, obj *object.Object) ([]
 	}
 
 	if len(data) != dataSize {
-		return nil, fmt.Errorf("Generated data size is wrong. (expected: %v, actual: %v)", dataSize, len(data))
+		return nil, fmt.Errorf("generated data size is wrong. (expected: %v, actual: %v)", dataSize, len(data))
 	}
 
 	return data, nil
@@ -123,7 +123,7 @@ func Valid(workerID int, expectedBucketName string, obj *object.Object, reader i
 	for i := 0; i < obj.Size/dataUnitSize; i++ {
 		n, _ := io.ReadFull(reader, data)
 		if n != dataUnitSize {
-			return fmt.Errorf("Could not read some data. (expected: %vbyte, actual: %vbyte)\n%v", dataUnitSize, n, dump(hex.Dump(data[0:n])))
+			return fmt.Errorf("could not read some data. (expected: %vbyte, actual: %vbyte)\n%v", dataUnitSize, n, dump(hex.Dump(data[0:n])))
 		}
 		err := validDataUnit(i, workerID, expectedBucketName, obj, data)
 		if err != nil {
