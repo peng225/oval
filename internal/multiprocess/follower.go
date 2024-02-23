@@ -130,8 +130,9 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		mu.Lock()
 		defer mu.Unlock()
-		state = stopped
+		stop()
 		stop = func() {}
+		state = stopped
 	}()
 
 	go func() {
