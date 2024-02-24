@@ -92,10 +92,8 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 		slog.Info("Workload is already running.")
 		return
 	} else if state != stopped {
-		// FIXME: When the status is canceling,
-		//        returning "InternalServerError" is not good.
 		slog.Error("Invalid state.", "state", state)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusConflict)
 		return
 	}
 
