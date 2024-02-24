@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/peng225/oval/internal/multiprocess"
@@ -22,15 +22,19 @@ var followerCmd = &cobra.Command{
 	Short: "Start a follower of the multi-process mode",
 	Long:  `Start a follower of the multi-process mode.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		handleCommonFlags()
+
 		if followerPort <= 0 {
-			log.Fatalf("Invalid follower port. followerPort = %d", followerPort)
+			slog.Error("Invalid follower port.", "followerPort", followerPort)
+			os.Exit(1)
 		}
 
 		if caCertFileName != "" {
 			// Check if a file with the name "caCertFileName" exists.
 			_, err := os.Stat(caCertFileName)
 			if err != nil {
-				log.Fatal(err)
+				slog.Error(err.Error())
+				os.Exit(1)
 			}
 		}
 
@@ -51,11 +55,13 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// followerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	defineCommonFlags(followerCmd)
 	followerCmd.Flags().IntVar(&followerPort, "follower_port", invalidPortNumber, "TCP port number to which the follower listens.")
 	followerCmd.Flags().StringVar(&caCertFileName, "cacert", "", "File name of CA certificate.")
 
 	err := followerCmd.MarkFlagRequired("follower_port")
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 }

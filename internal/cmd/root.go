@@ -3,13 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/peng225/oval/internal/argparser"
+	"github.com/peng225/oval/internal/logger"
 	"github.com/peng225/oval/internal/runner"
 	"github.com/spf13/cobra"
 )
@@ -27,6 +28,7 @@ var (
 	saveFileName       string
 	loadFileName       string
 	caCertFileName     string
+	logFormat          string
 
 	minSize, maxSize int
 	opeRatio         []float64
@@ -44,6 +46,7 @@ If no subcommands are specified, Oval runs in the single-process mode.`,
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
 		handleCommonFlags()
+		handleSubCommonFlags()
 
 		// Check if a file with the name "saveFileName" exists.
 		_, err := os.Stat(saveFileName)
@@ -52,11 +55,12 @@ If no subcommands are specified, Oval runs in the single-process mode.`,
 			var userInput string
 			_, err = fmt.Scan(&userInput)
 			if err != nil {
-				log.Fatal(err)
+				slog.Error(err.Error())
+				os.Exit(1)
 			}
 			if userInput != "y" {
 				saveFileName = ""
-				log.Println("Execution was canceled.")
+				slog.Info("Execution was canceled.")
 				return
 			}
 		}
@@ -65,7 +69,8 @@ If no subcommands are specified, Oval runs in the single-process mode.`,
 			// Check if a file with the name "caCertFileName" exists.
 			_, err = os.Stat(caCertFileName)
 			if err != nil {
-				log.Fatal(err)
+				slog.Error(err.Error())
+				os.Exit(1)
 			}
 		}
 
@@ -81,7 +86,7 @@ If no subcommands are specified, Oval runs in the single-process mode.`,
 		defer stop()
 		err = r.InitBucket(ctx)
 		if err != nil {
-			log.Println("r.InitBucket() failed. %w", err)
+			slog.Error("r.InitBucket() failed.", "err", err)
 			if ctx.Err() == context.Canceled {
 				return
 			}
@@ -89,7 +94,7 @@ If no subcommands are specified, Oval runs in the single-process mode.`,
 		}
 		err = r.Run(ctx)
 		if err != nil {
-			log.Println("r.Run() failed.")
+			slog.Error("r.Run() failed.")
 			if ctx.Err() == context.Canceled {
 				return
 			}
@@ -99,7 +104,8 @@ If no subcommands are specified, Oval runs in the single-process mode.`,
 		if saveFileName != "" {
 			err := r.SaveContext(saveFileName)
 			if err != nil {
-				log.Fatal(err)
+				slog.Error(err.Error())
+				os.Exit(1)
 			}
 		}
 	},
@@ -125,6 +131,7 @@ func init() {
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	defineCommonFlags(rootCmd)
+	defineSubCommonFlags(rootCmd)
 	rootCmd.Flags().BoolVar(&profiler, "profiler", false, "Enable profiler.")
 	rootCmd.Flags().StringVar(&saveFileName, "save", "", "File name to save the execution context.")
 	rootCmd.Flags().StringVar(&loadFileName, "load", "", "File name to load the execution context.")
@@ -135,39 +142,54 @@ func init() {
 }
 
 func handleCommonFlags() {
+	err := logger.SetLogFormat(logFormat)
+	if err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
+}
+
+func handleSubCommonFlags() {
 	var err error
 	minSize, maxSize, err = argparser.ParseSize(sizePattern)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	opeRatio, err = argparser.ParseOpeRatio(opeRatioStr)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 	multipartThresh, err = argparser.ParseMultipartThresh(multipartThreshStr)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 
 	if numWorker >= 256 {
-		log.Fatal("The number of workers must be less than 256.")
+		slog.Error("The number of workers must be less than 256.")
+		os.Exit(1)
 	}
 
 	if numObj > 0x1000000 {
-		log.Fatal("The number of objects must be less than 16777216.")
+		slog.Error("The number of objects must be less than 16777216.")
+		os.Exit(1)
 	}
 
 	if numObj < numWorker {
-		log.Fatal("The number of objects must be larger than or equal to the number of workers.")
+		slog.Error("The number of objects must be larger than or equal to the number of workers.")
+		os.Exit(1)
 	}
 
 	if execTime < 0 {
-		log.Fatal("The execution time must be larger than or equal to 0.")
+		slog.Error("The execution time must be larger than or equal to 0.")
+		os.Exit(1)
 	}
 
 	if numObj%numWorker != 0 {
-		log.Printf("warning: The number of objects (%d) is not divisible by the number of workers (%d). Only %d objects will be used.\n",
-			numObj, numWorker, numObj/numWorker*numWorker)
+		slog.Warn(fmt.Sprintf("The number of objects (%d) is not divisible by the number of workers (%d). Only %d objects will be used.",
+			numObj, numWorker, numObj/numWorker*numWorker))
 	}
 
 	execContext = &runner.ExecutionContext{
@@ -181,6 +203,10 @@ func handleCommonFlags() {
 }
 
 func defineCommonFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&logFormat, "log", "plane", `Log format ("plane" or "json").`)
+}
+
+func defineSubCommonFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVar(&numObj, "num_obj", 10, "The maximum number of objects per process.")
 	cmd.Flags().IntVar(&numWorker, "num_worker", 1, "The number of workers per process.")
 	cmd.Flags().StringVar(&sizePattern, "size", "4k", `The size of object. Should be in the form like "8k" or "4k-2m". Only "k", "m" and "g" is allowed as an unit.`)

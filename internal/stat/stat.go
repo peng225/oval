@@ -1,8 +1,11 @@
 package stat
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
 	"sync/atomic"
+
+	"github.com/peng225/oval/internal/logger"
 )
 
 type Stat struct {
@@ -39,11 +42,23 @@ func (st *Stat) AddDeleteCount() {
 }
 
 func (st *Stat) Report() {
-	log.Println("Statistics report.")
-	log.Printf("put count: %d\n", st.putCount)
-	log.Printf("- the number of uploaded parts: %d\n", st.uploadedPartCount)
-	log.Printf("get count: %d\n", st.getCount)
-	log.Printf("get (for validation) count: %d\n", st.getForValidCount)
-	log.Printf("list count: %d\n", st.listCount)
-	log.Printf("delete count: %d\n", st.deleteCount)
+	if logger.LogFormat() == logger.Plane {
+		slog.Info("Statistics report.")
+		slog.Info(fmt.Sprintf("put count: %d", st.putCount))
+		slog.Info(fmt.Sprintf("- the number of uploaded parts: %d", st.uploadedPartCount))
+		slog.Info(fmt.Sprintf("get count: %d", st.getCount))
+		slog.Info(fmt.Sprintf("get (for validation) count: %d", st.getForValidCount))
+		slog.Info(fmt.Sprintf("list count: %d", st.listCount))
+		slog.Info(fmt.Sprintf("delete count: %d", st.deleteCount))
+	} else {
+		slog.Info("Statistics report.",
+			slog.Group("report", "putCount", st.putCount,
+				"numUploadedParts", st.uploadedPartCount,
+				"getCount", st.getCount,
+				"getForValidationCount", st.getForValidCount,
+				"listCount", st.listCount,
+				"deleteCount", st.deleteCount,
+			),
+		)
+	}
 }
