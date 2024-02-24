@@ -106,4 +106,5 @@ func init() {
 	leaderCmd.Flags().StringVar(&configFileName, "config", "", "Config file name in JSON format.")
 
 	leaderCmd.MarkFlagsMutuallyExclusive("follower_list", "config")
+	leaderCmd.MarkFlagsOneRequired("follower_list", "config")
 }
