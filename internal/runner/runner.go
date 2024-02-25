@@ -50,6 +50,10 @@ type Runner struct {
 func NewRunner(execContext *ExecutionContext, opeRatio []float64, timeInMs int64,
 	profiler bool, loadFileName string, processID, multipartThresh int,
 	caCertFileName string) *Runner {
+	if len(execContext.BucketNames) == 0 {
+		slog.Error("bucket list is empty.")
+		os.Exit(1)
+	}
 	runner := &Runner{
 		execContext:     execContext,
 		opeRatio:        opeRatio,
