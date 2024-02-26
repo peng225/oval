@@ -13,11 +13,9 @@ const (
 )
 
 var logFormat string
-var pid int
 
 func init() {
 	logFormat = Plane
-	pid = os.Getpid()
 }
 
 func SetLogFormat(f string) error {
@@ -36,7 +34,7 @@ func SetLogFormat(f string) error {
 					}
 					return a
 				},
-			})).With("PID", pid)
+			}))
 	default:
 		return fmt.Errorf("invalid log format: %s", f)
 	}

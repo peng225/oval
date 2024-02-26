@@ -26,8 +26,8 @@ func (h *planeHandler) Handle(ctx context.Context, r slog.Record) error {
 	frame, _ := frames.Next()
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	_, err := fmt.Fprintf(os.Stdout, "%s %s %s:%d PID=%d %s",
-		r.Time.Format("2006-01-02T15:04:05.999Z07:00"), r.Level, filepath.Base(frame.File), frame.Line, pid, r.Message)
+	_, err := fmt.Fprintf(os.Stdout, "%s %s %s:%d %s",
+		r.Time.Format("2006-01-02T15:04:05.999Z07:00"), r.Level, filepath.Base(frame.File), frame.Line, r.Message)
 	if err != nil {
 		return err
 	}
