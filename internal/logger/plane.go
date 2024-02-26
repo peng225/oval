@@ -40,9 +40,9 @@ func (h *planeHandler) Handle(ctx context.Context, r slog.Record) error {
 	count := 0
 	r.Attrs(func(a slog.Attr) bool {
 		if count == 0 {
-			_, err = fmt.Fprintf(os.Stdout, " (%v:%v", a.Key, a.Value)
+			_, err = fmt.Fprintf(os.Stdout, " (%v=%v", a.Key, a.Value)
 		} else {
-			_, err = fmt.Fprintf(os.Stdout, ", %v:%v", a.Key, a.Value)
+			_, err = fmt.Fprintf(os.Stdout, ", %v=%v", a.Key, a.Value)
 		}
 		if err != nil {
 			fmt.Println(err)
