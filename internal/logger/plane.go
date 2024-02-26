@@ -11,11 +11,14 @@ import (
 )
 
 type planeHandler struct {
-	mu sync.Mutex
+	mu    sync.Mutex
+	attrs []slog.Attr
 }
 
-func newPlaneHandler() slog.Handler {
-	return &planeHandler{}
+func NewPlaneHandler(attrs []slog.Attr) slog.Handler {
+	return &planeHandler{
+		attrs: attrs,
+	}
 }
 
 func (h *planeHandler) Enabled(ctx context.Context, level slog.Level) bool {
@@ -31,6 +34,8 @@ func (h *planeHandler) Handle(ctx context.Context, r slog.Record) error {
 	if err != nil {
 		return err
 	}
+
+	r.AddAttrs(h.attrs...)
 
 	count := 0
 	r.Attrs(func(a slog.Attr) bool {
@@ -58,7 +63,7 @@ func (h *planeHandler) Handle(ctx context.Context, r slog.Record) error {
 }
 
 func (h *planeHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return h
+	return NewPlaneHandler(attrs)
 }
 
 func (h *planeHandler) WithGroup(name string) slog.Handler {

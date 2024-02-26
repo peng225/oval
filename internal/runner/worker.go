@@ -20,6 +20,7 @@ type Worker struct {
 	BucketsWithObject []*BucketWithObject `json:"bucketsWithObject"`
 	client            *s3client.S3Client
 	st                *stat.Stat
+	logger            *slog.Logger
 }
 
 type BucketWithObject struct {
@@ -31,7 +32,7 @@ func (w *Worker) ShowInfo() {
 	// Only show the key range of the first bucket
 	// because key range is the same for all buckets.
 	head, tail := w.BucketsWithObject[0].ObjectMeta.GetHeadAndTailKey()
-	slog.Info("Worker info", "ID", fmt.Sprintf("%#x", w.id), slog.Group("key", "head", head, "tail", tail))
+	w.logger.Info("Worker info", slog.Group("key", "head", head, "tail", tail))
 }
 
 func (w *Worker) Put(ctx context.Context) error {
@@ -45,11 +46,11 @@ func (w *Worker) Put(ctx context.Context) error {
 			if bucketWithObj.ObjectMeta.Exist(obj.Key) {
 				// expect: exists, actual: does not exist
 				err = fmt.Errorf("an object has been lost. (key = %s)", obj.Key)
-				slog.Error(err.Error())
+				w.logger.Error(err.Error())
 				return err
 			}
 		} else {
-			slog.Error(err.Error())
+			w.logger.Error(err.Error())
 			return err
 		}
 	} else {
@@ -57,17 +58,17 @@ func (w *Worker) Put(ctx context.Context) error {
 		if !bucketWithObj.ObjectMeta.Exist(obj.Key) {
 			// expect: does not exist, actual: exists
 			err = fmt.Errorf("an unexpected object was found. (key = %s)", obj.Key)
-			slog.Error(err.Error())
+			w.logger.Error(err.Error())
 			return err
 		}
 		err := pattern.Valid(w.id, bucketWithObj.BucketName, obj, getBeforeBody)
 		if err != nil {
 			if ctx.Err() == context.Canceled {
-				slog.Info("Detected the canceled context.")
+				w.logger.Warn("Detected the canceled context.")
 				return nil
 			}
 			err = fmt.Errorf("data validation error occurred before put.\n%w", err)
-			slog.Error(err.Error())
+			w.logger.Error(err.Error())
 			return err
 		}
 		w.st.AddGetForValidCount()
@@ -75,7 +76,7 @@ func (w *Worker) Put(ctx context.Context) error {
 
 	size, err := pattern.DecideSize(w.minSize, w.maxSize)
 	if err != nil {
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 	obj.Size = size
@@ -83,12 +84,12 @@ func (w *Worker) Put(ctx context.Context) error {
 	obj.WriteCount++
 	body, err := pattern.Generate(size, w.id, bucketWithObj.BucketName, obj)
 	if err != nil {
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 	partCount, err := w.client.PutObject(ctx, bucketWithObj.BucketName, obj.Key, body)
 	if err != nil {
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 
@@ -101,18 +102,18 @@ func (w *Worker) Put(ctx context.Context) error {
 		if errors.Is(err, s3client.ErrNoSuchKey) {
 			err = fmt.Errorf("object lost after put.\nerr: %w\nobj: %v", err, obj)
 		}
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 	defer getAfterBody.Close()
 	err = pattern.Valid(w.id, bucketWithObj.BucketName, obj, getAfterBody)
 	if err != nil {
 		if ctx.Err() == context.Canceled {
-			slog.Warn("Detected the canceled context.")
+			w.logger.Warn("Detected the canceled context.")
 			return nil
 		}
 		err = fmt.Errorf("data validation error occurred after put.\n%w", err)
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 	w.st.AddGetForValidCount()
@@ -132,18 +133,18 @@ func (w *Worker) Get(ctx context.Context) error {
 		if errors.Is(err, s3client.ErrNoSuchKey) {
 			err = fmt.Errorf("object lost before get.\nerr: %w\nobj: %v", err, obj)
 		}
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 	defer body.Close()
 	err = pattern.Valid(w.id, bucketWithObj.BucketName, obj, body)
 	if err != nil {
 		if ctx.Err() == context.Canceled {
-			slog.Warn("Detected the canceled context.")
+			w.logger.Warn("Detected the canceled context.")
 			return nil
 		}
 		err = fmt.Errorf("data validation error occurred at get operation.\n%w", err)
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 	w.st.AddGetCount()
@@ -155,14 +156,14 @@ func (w *Worker) List(ctx context.Context) error {
 
 	objectNames, err := w.client.ListObjects(ctx, bucketWithObj.BucketName, bucketWithObj.ObjectMeta.KeyPrefix)
 	if err != nil {
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 
 	if len(bucketWithObj.ObjectMeta.ExistingObjectIDs) != len(objectNames) {
 		err = fmt.Errorf("invalid number of objects found as a result of the LIST operation. expected = %d, actual = %d",
 			len(bucketWithObj.ObjectMeta.ExistingObjectIDs), len(objectNames))
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 
@@ -170,7 +171,7 @@ func (w *Worker) List(ctx context.Context) error {
 		if !bucketWithObj.ObjectMeta.Exist(objName) {
 			err = fmt.Errorf("invalid object key '%s' found in the result of the LIST operation. workerID = 0x%x",
 				objName, w.id)
-			slog.Error(err.Error())
+			w.logger.Error(err.Error())
 			return err
 		}
 	}
@@ -192,25 +193,25 @@ func (w *Worker) Delete(ctx context.Context) error {
 		if errors.Is(err, s3client.ErrNoSuchKey) {
 			err = fmt.Errorf("object lost before delete.\nerr: %w\nobj: %v", err, obj)
 		}
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 	defer getBeforeBody.Close()
 	err = pattern.Valid(w.id, bucketWithObj.BucketName, obj, getBeforeBody)
 	if err != nil {
 		if ctx.Err() == context.Canceled {
-			slog.Warn("Detected the canceled context.")
+			w.logger.Warn("Detected the canceled context.")
 			return nil
 		}
 		err = fmt.Errorf("data validation error occurred before delete.\n%w", err)
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 	w.st.AddGetForValidCount()
 
 	err = w.client.DeleteObject(ctx, bucketWithObj.BucketName, obj.Key)
 	if err != nil {
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 	w.st.AddDeleteCount()
@@ -220,13 +221,13 @@ func (w *Worker) Delete(ctx context.Context) error {
 	if err != nil {
 		if !errors.Is(err, s3client.ErrNoSuchKey) {
 			err = fmt.Errorf("unexpected error occurred. (err = %w)", err)
-			slog.Error(err.Error())
+			w.logger.Error(err.Error())
 			return err
 		}
 	} else {
 		defer getAfterBody.Close()
 		err = fmt.Errorf("expected: object not found, actual: object found. (obj = %v)", *obj)
-		slog.Error(err.Error())
+		w.logger.Error(err.Error())
 		return err
 	}
 	obj.Clear()

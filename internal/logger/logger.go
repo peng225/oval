@@ -22,7 +22,7 @@ func SetLogFormat(f string) error {
 	var l *slog.Logger
 	switch f {
 	case Plane:
-		l = slog.New(newPlaneHandler())
+		l = slog.New(NewPlaneHandler(nil))
 	case JSON:
 		l = slog.New(slog.NewJSONHandler(os.Stdout,
 			&slog.HandlerOptions{
