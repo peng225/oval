@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 )
 
@@ -23,22 +22,14 @@ func (h *planeHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return true
 }
 func (h *planeHandler) Handle(ctx context.Context, r slog.Record) error {
-	tokens := strings.Split(r.Message, "\n")
 	frames := runtime.CallersFrames([]uintptr{r.PC})
 	frame, _ := frames.Next()
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	_, err := fmt.Fprintf(os.Stdout, "%s %s %s:%d PID=%d ",
-		r.Time.Format("2006-01-02T15:04:05.999Z07:00"), r.Level, filepath.Base(frame.File), frame.Line, pid)
+	_, err := fmt.Fprintf(os.Stdout, "%s %s %s:%d PID=%d %s",
+		r.Time.Format("2006-01-02T15:04:05.999Z07:00"), r.Level, filepath.Base(frame.File), frame.Line, pid, r.Message)
 	if err != nil {
 		return err
-	}
-
-	for _, token := range tokens {
-		_, err := fmt.Fprint(os.Stdout, token)
-		if err != nil {
-			return err
-		}
 	}
 
 	count := 0
