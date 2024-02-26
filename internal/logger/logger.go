@@ -12,12 +12,6 @@ const (
 	JSON  = "json"
 )
 
-var logFormat string
-
-func init() {
-	logFormat = Plane
-}
-
 func SetLogFormat(f string) error {
 	var l *slog.Logger
 	switch f {
@@ -38,11 +32,6 @@ func SetLogFormat(f string) error {
 	default:
 		return fmt.Errorf("invalid log format: %s", f)
 	}
-	logFormat = f
 	slog.SetDefault(l)
 	return nil
-}
-
-func LogFormat() string {
-	return logFormat
 }
