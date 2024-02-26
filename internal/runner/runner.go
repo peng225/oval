@@ -42,7 +42,7 @@ type Runner struct {
 	loadFileName    string
 	client          *s3client.S3Client
 	st              stat.Stat
-	processID       int
+	runnerID        int
 	multipartThresh int
 	caCertFileName  string
 }
@@ -60,7 +60,7 @@ func NewRunner(execContext *ExecutionContext, opeRatio []float64, timeInMs int64
 		timeInMs:        timeInMs,
 		profiler:        profiler,
 		loadFileName:    loadFileName,
-		processID:       processID,
+		runnerID:        processID,
 		multipartThresh: multipartThresh,
 		caCertFileName:  caCertFileName,
 	}
@@ -120,7 +120,7 @@ func (r *Runner) init() {
 					BucketName: bucketName,
 					ObjectMeta: object.NewObjectMeta(
 						r.execContext.NumObj/r.execContext.NumWorker,
-						(int64(r.processID)<<32)+(int64(i)<<24)),
+						(int64(r.runnerID)<<32)+(int64(i)<<24)),
 				}
 			}
 		} else {
@@ -130,6 +130,8 @@ func (r *Runner) init() {
 		}
 		r.execContext.Workers[i].client = r.client
 		r.execContext.Workers[i].st = &r.st
+		r.execContext.Workers[i].logger = slog.Default().With("runnerID", r.runnerID,
+			"workerID", fmt.Sprintf("%#x", r.execContext.Workers[i].id))
 		r.execContext.Workers[i].ShowInfo()
 	}
 }
@@ -160,7 +162,7 @@ func (r *Runner) InitBucket(ctx context.Context) error {
 		} else {
 			if r.loadFileName == "" {
 				slog.Info("Clearing bucket.", "bucket", bucketName)
-				err = r.client.ClearBucket(ctx, bucketName, fmt.Sprintf("%s%02x", object.KeyShortPrefix, r.processID))
+				err = r.client.ClearBucket(ctx, bucketName, fmt.Sprintf("%s%02x", object.KeyShortPrefix, r.runnerID))
 				if err != nil {
 					return err
 				}
