@@ -181,6 +181,8 @@ func (r *Runner) Run(ctx context.Context) error {
 	wg := &sync.WaitGroup{}
 	now := time.Now()
 	var err error
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	for i := 0; i < r.execContext.NumWorker; i++ {
 		wg.Add(1)
 		go func(workerID int) {
@@ -205,6 +207,7 @@ func (r *Runner) Run(ctx context.Context) error {
 					err = r.execContext.Workers[workerID].List(ctx)
 				}
 				if err != nil {
+					cancel()
 					return
 				}
 			}
