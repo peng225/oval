@@ -87,6 +87,7 @@ func NewS3Client(endpoint, caCertFileName string, multipartThresh int) *S3Client
 		// Create an Amazon S3 service client
 		s.client = s3.NewFromConfig(cfg, func(o *s3.Options) {
 			o.BaseEndpoint = aws.String(endpoint)
+			o.UsePathStyle = true
 		})
 	} else {
 		cfg, err = config.LoadDefaultConfig(context.Background(),
