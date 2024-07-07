@@ -78,21 +78,17 @@ func NewS3Client(endpoint, caCertFileName string, multipartThresh int) *S3Client
 		}
 	}
 	if endpoint != "" {
-		customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				PartitionID:       "aws",
-				URL:               endpoint,
-				SigningRegion:     region,
-				HostnameImmutable: true,
-			}, nil
-		})
 		cfg, err = config.LoadDefaultConfig(context.Background(),
-			config.WithEndpointResolverWithOptions(customResolver),
 			config.WithHTTPClient(client))
 		if err != nil {
 			slog.Error(err.Error())
 			os.Exit(1)
 		}
+		// Create an Amazon S3 service client
+		s.client = s3.NewFromConfig(cfg, func(o *s3.Options) {
+			o.BaseEndpoint = aws.String(endpoint)
+			o.UsePathStyle = true
+		})
 	} else {
 		cfg, err = config.LoadDefaultConfig(context.Background(),
 			config.WithHTTPClient(client))
@@ -100,10 +96,9 @@ func NewS3Client(endpoint, caCertFileName string, multipartThresh int) *S3Client
 			slog.Error(err.Error())
 			os.Exit(1)
 		}
+		// Create an Amazon S3 service client
+		s.client = s3.NewFromConfig(cfg)
 	}
-
-	// Create an Amazon S3 service client
-	s.client = s3.NewFromConfig(cfg)
 
 	return s
 }
