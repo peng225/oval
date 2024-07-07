@@ -109,7 +109,7 @@ start-minio: | $(MINIO_DATADIR)
 	   --name minio \
 	   -v $(MINIO_DATADIR):/data \
 	   --rm -d \
-	   quay.io/minio/minio server /data --console-address ":9090"
+	   minio/minio server /data --console-address ":9090"
 
 .PHONY: start-minio-https
 start-minio-https: keypair | $(MINIO_DATADIR)
@@ -120,7 +120,7 @@ start-minio-https: keypair | $(MINIO_DATADIR)
 	   -v $(MINIO_DATADIR):/data \
 	   -v $(MINIO_CERTDIR):/certs \
 	   --rm -d \
-	   quay.io/minio/minio server /data --console-address ":9090" --certs-dir /certs
+	   minio/minio server /data --console-address ":9090" --certs-dir /certs
 
 .PHONY: stop-minio
 stop-minio:
