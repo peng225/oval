@@ -121,11 +121,11 @@ func Valid(workerID int, expectedBucketName string, obj *object.Object, reader i
 	}
 	data := make([]byte, dataUnitSize)
 	for i := 0; i < obj.Size/dataUnitSize; i++ {
-		n, _ := io.ReadFull(reader, data)
-		if n != dataUnitSize {
+		n, err := io.ReadFull(reader, data)
+		if err != nil {
 			return fmt.Errorf("could not read some data. (expected: %vbyte, actual: %vbyte)\n%v", dataUnitSize, n, dump(hex.Dump(data[0:n])))
 		}
-		err := validDataUnit(i, workerID, expectedBucketName, obj, data)
+		err = validDataUnit(i, workerID, expectedBucketName, obj, data)
 		if err != nil {
 			return err
 		}
