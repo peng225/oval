@@ -9,7 +9,7 @@ require (
 	github.com/peng225/rlog v0.1.2
 	github.com/pkg/profile v1.7.0
 	github.com/spf13/cobra v1.9.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 )
 
 require (
